@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
 import calendar
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -12,9 +12,8 @@ st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", l
 # --- 2. 連接 Google Sheets 資料庫 ---
 @st.cache_resource
 def init_connection():
-    # 檢查 Secrets 是否設定正確
     if "textkey" not in st.secrets:
-        st.error("❌ 錯誤：找不到 Secrets 設定。請在 Streamlit 後台設定 Secrets。")
+        st.error("❌ 錯誤：找不到 Secrets 設定。")
         st.stop()
     
     try:
@@ -27,11 +26,10 @@ def init_connection():
         st.error(f"❌ 無法連接 Google API: {e}")
         st.stop()
 
-# 讀取資料 (不使用快取，確保每次都抓最新的)
+# 讀取資料
 def load_data():
     try:
         client = init_connection()
-        # 嘗試開啟試算表，如果失敗會噴錯
         sheet = client.open("volunteer_db").sheet1 
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
@@ -41,7 +39,7 @@ def load_data():
                 booking_dict[row["key"]] = row["value"]
         return booking_dict
     except gspread.exceptions.SpreadsheetNotFound:
-        st.error("❌ 找不到試算表！請確認 Google Sheet 名稱是否為 'volunteer_db' 且已共用給機器人。")
+        st.error("❌ 找不到試算表！請確認 Google Sheet 名稱是否為 'volunteer_db'。")
         return {}
     except Exception as e:
         st.error(f"❌ 讀取資料失敗: {e}")
@@ -52,23 +50,21 @@ def save_data(key, value):
     try:
         client = init_connection()
         sheet = client.open("volunteer_db").sheet1
-        
-        # 嘗試尋找是否已有該 Key
         try:
             cell = sheet.find(key)
-            sheet.update_cell(cell.row, 2, value) # 更新第2欄 (Value)
+            sheet.update_cell(cell.row, 2, value)
         except gspread.exceptions.CellNotFound:
-            # 沒找到就新增
             sheet.append_row([key, value])
-        except Exception as e:
-            st.error(f"儲存時發生錯誤 (Update): {e}")
-            
     except Exception as e:
         st.error(f"❌ 無法寫入 Google Sheet: {e}")
 
 # 初始化 Session State
 if 'bookings' not in st.session_state:
     st.session_state.bookings = load_data()
+
+# 記錄最後更新時間
+if 'last_updated' not in st.session_state:
+    st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
 
 # --- 3. 參數與初始化 ---
 ZONES = ["1F-沉浸室劇場", "1F-手扶梯驗票", "2F展區、特展", "3F-展區", "4F-展區", "5F-閱讀區"]
@@ -90,11 +86,24 @@ if 'open_months_list' not in st.session_state:
 with st.sidebar:
     st.header("🚢 功能選單")
     
-    # [新功能] 重新整理按鈕
-    if st.button("🔄 點我更新最新資料", type="primary"):
-        st.cache_resource.clear() # 清除連線快取
-        st.session_state.bookings = load_data() # 重新抓取資料
-        st.toast("✅ 資料已更新！")
+    st.caption(f"上次更新: {st.session_state.last_updated}")
+    
+    # [核心修正] 強制同步按鈕
+    if st.button("🔄 點我接收最新資料", type="primary"):
+        # 1. 重新從 Google 抓資料
+        st.cache_resource.clear()
+        new_data = load_data()
+        st.session_state.bookings = new_data
+        
+        # 2. [關鍵步驟] 強制把新資料塞進輸入框的 state 裡
+        # Streamlit 的 input widget key 是 "in_" + 資料庫 key
+        for db_key, db_val in new_data.items():
+            widget_key = f"in_{db_key}"
+            st.session_state[widget_key] = db_val
+            
+        # 3. 更新時間並重整
+        st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
+        st.toast("✅ 資料已同步！")
         st.rerun()
         
     st.divider()
@@ -190,7 +199,6 @@ else:
                                 st.markdown(f"<div style='background:#f0f0f0;color:#aaa;text-align:center;padding:10px;'>{d}<br><small>休</small></div>", unsafe_allow_html=True)
                             else:
                                 is_sel = (st.session_state.selected_date == curr)
-                                # 這裡改用 secondary 樣式讓按鈕比較不刺眼
                                 if st.button(f"{d}", key=f"b_{year}_{month}_{d}", type="primary" if is_sel else "secondary", use_container_width=True):
                                     st.session_state.selected_date = curr
                                     st.rerun()
@@ -212,10 +220,13 @@ else:
                     cc = st.columns(MAX_SLOTS)
                     for k in range(MAX_SLOTS):
                         key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
+                        # 這裡從 bookings 讀取值
                         val = st.session_state.bookings.get(key, "")
+                        
                         with cc[k]:
-                            # 加入 on_change 機制，確保按 Enter 或離開焦點時會觸發
-                            nv = st.text_input(f"志工{k+1}", val, key=f"in_{key}", label_visibility="collapsed")
+                            # 這裡的 key 必須對應到我們在 update 按鈕裡更新的 key
+                            widget_key = f"in_{key}"
+                            nv = st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed")
                             if nv != val:
                                 st.session_state.bookings[key] = nv
                                 save_data(key, nv)
