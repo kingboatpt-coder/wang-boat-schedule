@@ -12,22 +12,26 @@ st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", l
 # --- 2. 連接 Google Sheets 資料庫 ---
 @st.cache_resource
 def init_connection():
-    # [修正點] 直接讀取 secrets，不需要 json.loads，因為我們已經改用原生 TOML 格式
-    # 如果 secrets 裡找不到 textkey，會跳出清楚的錯誤
+    # 檢查 Secrets 是否設定正確
     if "textkey" not in st.secrets:
-        st.error("Secrets 設定錯誤：找不到 [textkey] 區塊。請檢查 Streamlit 設定。")
+        st.error("❌ 錯誤：找不到 Secrets 設定。請在 Streamlit 後台設定 Secrets。")
         st.stop()
-        
-    key_dict = st.secrets["textkey"]
     
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
-    client = gspread.authorize(creds)
-    return client
+    try:
+        key_dict = st.secrets["textkey"]
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
+        client = gspread.authorize(creds)
+        return client
+    except Exception as e:
+        st.error(f"❌ 無法連接 Google API: {e}")
+        st.stop()
 
+# 讀取資料 (不使用快取，確保每次都抓最新的)
 def load_data():
     try:
         client = init_connection()
+        # 嘗試開啟試算表，如果失敗會噴錯
         sheet = client.open("volunteer_db").sheet1 
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
@@ -36,18 +40,33 @@ def load_data():
             for index, row in df.iterrows():
                 booking_dict[row["key"]] = row["value"]
         return booking_dict
+    except gspread.exceptions.SpreadsheetNotFound:
+        st.error("❌ 找不到試算表！請確認 Google Sheet 名稱是否為 'volunteer_db' 且已共用給機器人。")
+        return {}
     except Exception as e:
+        st.error(f"❌ 讀取資料失敗: {e}")
         return {}
 
+# 儲存資料
 def save_data(key, value):
-    client = init_connection()
-    sheet = client.open("volunteer_db").sheet1
     try:
-        cell = sheet.find(key)
-        sheet.update_cell(cell.row, 2, value)
-    except:
-        sheet.append_row([key, value])
+        client = init_connection()
+        sheet = client.open("volunteer_db").sheet1
+        
+        # 嘗試尋找是否已有該 Key
+        try:
+            cell = sheet.find(key)
+            sheet.update_cell(cell.row, 2, value) # 更新第2欄 (Value)
+        except gspread.exceptions.CellNotFound:
+            # 沒找到就新增
+            sheet.append_row([key, value])
+        except Exception as e:
+            st.error(f"儲存時發生錯誤 (Update): {e}")
+            
+    except Exception as e:
+        st.error(f"❌ 無法寫入 Google Sheet: {e}")
 
+# 初始化 Session State
 if 'bookings' not in st.session_state:
     st.session_state.bookings = load_data()
 
@@ -69,6 +88,17 @@ if 'open_months_list' not in st.session_state:
 
 # --- 4. 側邊欄 ---
 with st.sidebar:
+    st.header("🚢 功能選單")
+    
+    # [新功能] 重新整理按鈕
+    if st.button("🔄 點我更新最新資料", type="primary"):
+        st.cache_resource.clear() # 清除連線快取
+        st.session_state.bookings = load_data() # 重新抓取資料
+        st.toast("✅ 資料已更新！")
+        st.rerun()
+        
+    st.divider()
+    
     st.header("⚙️ 管理員後台")
     password = st.text_input("輸入密碼登入", type="password")
     if password == ADMIN_PASSWORD:
@@ -122,8 +152,12 @@ with st.sidebar:
             for k, v in latest_data.items():
                 if v.strip():
                     parts = k.split("_")
-                    data_list.append({"日期": parts[0], "時段": parts[1], "區域": parts[2], "志工": v})
-            st.download_button("下載 CSV", pd.DataFrame(data_list).to_csv(index=False), "schedule.csv", "text/csv")
+                    if len(parts) >= 4:
+                        data_list.append({"日期": parts[0], "時段": parts[1], "區域": parts[2], "志工": v})
+            if data_list:
+                st.download_button("下載 CSV", pd.DataFrame(data_list).to_csv(index=False), "schedule.csv", "text/csv")
+            else:
+                st.warning("目前沒有資料可下載")
 
 # --- 5. 主畫面 ---
 st.title("🚢 王船文化館 - 志工排班")
@@ -156,6 +190,7 @@ else:
                                 st.markdown(f"<div style='background:#f0f0f0;color:#aaa;text-align:center;padding:10px;'>{d}<br><small>休</small></div>", unsafe_allow_html=True)
                             else:
                                 is_sel = (st.session_state.selected_date == curr)
+                                # 這裡改用 secondary 樣式讓按鈕比較不刺眼
                                 if st.button(f"{d}", key=f"b_{year}_{month}_{d}", type="primary" if is_sel else "secondary", use_container_width=True):
                                     st.session_state.selected_date = curr
                                     st.rerun()
@@ -179,11 +214,12 @@ else:
                         key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
                         val = st.session_state.bookings.get(key, "")
                         with cc[k]:
+                            # 加入 on_change 機制，確保按 Enter 或離開焦點時會觸發
                             nv = st.text_input(f"志工{k+1}", val, key=f"in_{key}", label_visibility="collapsed")
                             if nv != val:
                                 st.session_state.bookings[key] = nv
                                 save_data(key, nv)
-                                st.toast(f"已儲存：{nv}")
+                                st.toast(f"✅ 已儲存：{nv}")
                     st.divider()
         render_form("上午", t1)
         render_form("下午", t2)
