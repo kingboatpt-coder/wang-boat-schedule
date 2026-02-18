@@ -10,49 +10,44 @@ import json
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
 
 # --- 2. 連接 Google Sheets 資料庫 ---
-# 設定快取，避免每次操作都重新連線
 @st.cache_resource
 def init_connection():
-    # 從 Streamlit Secrets 讀取鑰匙資料
-    key_dict = json.loads(st.secrets["textkey"])
+    # [修正點] 直接讀取 secrets，不需要 json.loads，因為我們已經改用原生 TOML 格式
+    # 如果 secrets 裡找不到 textkey，會跳出清楚的錯誤
+    if "textkey" not in st.secrets:
+        st.error("Secrets 設定錯誤：找不到 [textkey] 區塊。請檢查 Streamlit 設定。")
+        st.stop()
+        
+    key_dict = st.secrets["textkey"]
+    
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     client = gspread.authorize(creds)
     return client
 
-# 讀取資料
 def load_data():
     try:
         client = init_connection()
-        # 這裡請填寫您的 Google 試算表名稱
         sheet = client.open("volunteer_db").sheet1 
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
-        # 把資料轉回我們程式習慣的字典格式
         booking_dict = {}
         if not df.empty and "key" in df.columns and "value" in df.columns:
             for index, row in df.iterrows():
                 booking_dict[row["key"]] = row["value"]
         return booking_dict
     except Exception as e:
-        # 如果試算表是空的或連線失敗，回傳空字典
         return {}
 
-# 儲存資料 (單筆更新)
 def save_data(key, value):
     client = init_connection()
     sheet = client.open("volunteer_db").sheet1
-    
-    # 檢查是否已有這筆資料
     try:
         cell = sheet.find(key)
-        # 如果找到了，更新那一列的 Value
-        sheet.update_cell(cell.row, 2, value) # 假設 Value 在第 2 欄
+        sheet.update_cell(cell.row, 2, value)
     except:
-        # 沒找到，新增一列
         sheet.append_row([key, value])
 
-# 初始化 Session State (從雲端讀取資料)
 if 'bookings' not in st.session_state:
     st.session_state.bookings = load_data()
 
@@ -72,7 +67,7 @@ if 'selected_date' not in st.session_state:
 if 'open_months_list' not in st.session_state:
     st.session_state.open_months_list = [(2026, 3)]
 
-# --- 4. 側邊欄與管理後台 (維持不變，僅加入重整邏輯) ---
+# --- 4. 側邊欄 ---
 with st.sidebar:
     st.header("⚙️ 管理員後台")
     password = st.text_input("輸入密碼登入", type="password")
@@ -120,10 +115,8 @@ with st.sidebar:
                 st.session_state.announcement = ann
                 st.rerun()
 
-        # 下載功能 (從 session state 轉出)
         st.divider()
         if st.button("💾 下載最新資料"):
-            # 重新從雲端抓一次最新資料確保無誤
             latest_data = load_data()
             data_list = []
             for k, v in latest_data.items():
@@ -132,8 +125,7 @@ with st.sidebar:
                     data_list.append({"日期": parts[0], "時段": parts[1], "區域": parts[2], "志工": v})
             st.download_button("下載 CSV", pd.DataFrame(data_list).to_csv(index=False), "schedule.csv", "text/csv")
 
-
-# --- 5. 主畫面與日曆 ---
+# --- 5. 主畫面 ---
 st.title("🚢 王船文化館 - 志工排班")
 st.info(st.session_state.announcement)
 
@@ -171,7 +163,6 @@ else:
     for i, (yy, mm) in enumerate(sorted_months):
         render_cal(yy, mm, tabs[i])
 
-    # --- 6. 填寫區 (連線儲存核心) ---
     if st.session_state.selected_date and (st.session_state.selected_date.year, st.session_state.selected_date.month) in sorted_months:
         d = st.session_state.selected_date
         st.divider()
@@ -186,14 +177,11 @@ else:
                     cc = st.columns(MAX_SLOTS)
                     for k in range(MAX_SLOTS):
                         key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
-                        # 這裡直接讀取 session_state (它已經在開頭跟雲端同步過了)
                         val = st.session_state.bookings.get(key, "")
                         with cc[k]:
                             nv = st.text_input(f"志工{k+1}", val, key=f"in_{key}", label_visibility="collapsed")
                             if nv != val:
-                                # 1. 更新記憶體
                                 st.session_state.bookings[key] = nv
-                                # 2. 更新雲端 (關鍵步驟)
                                 save_data(key, nv)
                                 st.toast(f"已儲存：{nv}")
                     st.divider()
