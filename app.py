@@ -4,7 +4,7 @@ from datetime import date, datetime
 import calendar
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from gspread.exceptions import CellNotFound # 確保引入這個錯誤類型
+import json
 
 # --- 1. 頁面設定 ---
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
@@ -16,7 +16,9 @@ def init_connection():
         st.error("❌ 錯誤：找不到 Secrets 設定。")
         st.stop()
     
+    # 直接讀取 secrets
     key_dict = st.secrets["textkey"]
+    
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     client = gspread.authorize(creds)
@@ -27,40 +29,40 @@ def load_data():
     try:
         client = init_connection()
         sheet = client.open("volunteer_db").sheet1 
-        # 這裡會讀取所有資料，如果第一行沒有 key/value，可能會回傳空
+        # 讀取所有資料
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
         booking_dict = {}
-        # 寬容模式：只要 DataFrame 不為空，就試著轉換
+        
+        # 只要有資料就嘗試轉換
         if not df.empty:
-            # 強制將欄位名稱轉小寫以防萬一
-            df.columns = [c.lower() for c in df.columns]
+            # 確保欄位名稱小寫，避免大小寫問題
+            df.columns = [str(c).lower() for c in df.columns]
             if "key" in df.columns and "value" in df.columns:
                 for index, row in df.iterrows():
                     booking_dict[str(row["key"])] = str(row["value"])
         return booking_dict
     except Exception as e:
-        # 這裡不顯示錯誤，避免干擾畫面，回傳空字典即可
-        print(f"Read Error: {e}")
+        # 如果讀取失敗(例如空表)，回傳空字典，不要讓程式崩潰
         return {}
 
-# 儲存資料 (除錯強化版)
+# 儲存資料 (修正版：更安全的寫法)
 def save_data(key, value):
     try:
         client = init_connection()
         sheet = client.open("volunteer_db").sheet1
         
-        # 嘗試尋找該 Key 是否存在
+        # 嘗試尋找該 Key
         try:
             cell = sheet.find(key)
-            # 找到就更新 (第2欄)
+            # 如果找到了，更新它
             sheet.update_cell(cell.row, 2, value)
-        except CellNotFound:
-            # 沒找到就新增一行
+        except:
+            # 如果「找不到」或是發生任何錯誤，就直接新增一行
+            # 這是最保險的做法，避免因版本問題導致報錯
             sheet.append_row([key, value])
             
     except Exception as e:
-        # ⚠️ 這裡會直接把錯誤噴在畫面上，讓我們知道發生什麼事
         st.error(f"❌ 存檔失敗 (Critical Error): {e}")
 
 # 初始化 Session State
@@ -97,6 +99,7 @@ with st.sidebar:
         st.cache_resource.clear()
         new_data = load_data()
         st.session_state.bookings = new_data
+        
         # 強制更新輸入框狀態
         for db_key, db_val in new_data.items():
             st.session_state[f"in_{db_key}"] = db_val
@@ -112,13 +115,12 @@ with st.sidebar:
     if password == ADMIN_PASSWORD:
         st.success("✅ 已登入")
         
-        # 測試連線按鈕 (新增)
+        # 測試連線按鈕
         if st.button("🧪 測試 Google Sheet 連線"):
             try:
                 client = init_connection()
                 sheet = client.open("volunteer_db").sheet1
-                st.write(f"連線成功！目前試算表有 {len(sheet.get_all_values())} 行資料。")
-                st.write(f"標題欄: {sheet.row_values(1)}")
+                st.success(f"連線成功！讀取到 {len(sheet.get_all_values())} 行資料。")
             except Exception as e:
                 st.error(f"連線失敗: {e}")
 
@@ -232,13 +234,13 @@ else:
                         val = st.session_state.bookings.get(key, "")
                         
                         with cc[k]:
-                            # on_change 沒有設，改用檢查值變更
+                            # 輸入框邏輯
                             widget_key = f"in_{key}"
                             nv = st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed")
                             if nv != val:
                                 st.session_state.bookings[key] = nv
-                                save_data(key, nv) # 這裡如果失敗會跳紅字
-                                st.toast(f"已儲存：{nv}")
+                                save_data(key, nv)
+                                st.toast(f"✅ 已儲存：{nv}")
                     st.divider()
         render_form("上午", t1)
         render_form("下午", t2)
