@@ -105,7 +105,6 @@ if 'bookings' not in st.session_state:
     raw_data = load_data()
     st.session_state.bookings = raw_data
     
-    # 讀取雲端儲存的「開放月份」
     if "SYS_OPEN_MONTHS" in raw_data:
         try: 
             loaded_m = json.loads(raw_data["SYS_OPEN_MONTHS"])
@@ -113,19 +112,16 @@ if 'bookings' not in st.session_state:
         except: st.session_state.open_months_list = [(2026, 3)]
     else: st.session_state.open_months_list = [(2026, 3)]
         
-    # 讀取雲端儲存的「休館日」
     if "SYS_CLOSED_DAYS" in raw_data:
         try: st.session_state.closed_days = [datetime.strptime(d, "%Y-%m-%d").date() for d in json.loads(raw_data["SYS_CLOSED_DAYS"])]
         except: st.session_state.closed_days = []
     else: st.session_state.closed_days = []
         
-    # 讀取雲端儲存的「開館日」
     if "SYS_OPEN_DAYS" in raw_data:
         try: st.session_state.open_days = [datetime.strptime(d, "%Y-%m-%d").date() for d in json.loads(raw_data["SYS_OPEN_DAYS"])]
         except: st.session_state.open_days = []
     else: st.session_state.open_days = []
         
-    # 讀取雲端儲存的「公告」
     st.session_state.announcement = raw_data.get("SYS_ANNOUNCEMENT", "歡迎！請點擊上方分頁切換月份進行登記。")
 
 if 'last_updated' not in st.session_state:
@@ -144,7 +140,6 @@ with st.sidebar:
         new_data = load_data()
         st.session_state.bookings = new_data
         
-        # 同步更新系統參數
         if "SYS_OPEN_MONTHS" in new_data:
             try: st.session_state.open_months_list = [(m[0], m[1]) for m in json.loads(new_data["SYS_OPEN_MONTHS"])]
             except: pass
@@ -158,7 +153,7 @@ with st.sidebar:
             st.session_state.announcement = new_data["SYS_ANNOUNCEMENT"]
             
         for db_key, db_val in new_data.items():
-            if not str(db_key).startswith("SYS_"): # 不要把系統參數變成輸入框的值
+            if not str(db_key).startswith("SYS_"): 
                 st.session_state[f"in_{db_key}"] = db_val
         st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
         st.toast("✅ 資料已同步")
@@ -183,7 +178,6 @@ with st.sidebar:
                 target = (add_y, add_m)
                 if target not in st.session_state.open_months_list:
                     st.session_state.open_months_list.append(target)
-                    # 儲存進雲端
                     save_data("SYS_OPEN_MONTHS", json.dumps(st.session_state.open_months_list))
                     st.rerun()
 
@@ -195,7 +189,6 @@ with st.sidebar:
                     target = (int(y), int(m))
                     if target in st.session_state.open_months_list:
                         st.session_state.open_months_list.remove(target)
-                # 儲存進雲端
                 save_data("SYS_OPEN_MONTHS", json.dumps(st.session_state.open_months_list))
                 st.rerun()
 
@@ -207,7 +200,6 @@ with st.sidebar:
                     st.session_state.open_days.remove(d_input)
                 if d_input not in st.session_state.closed_days:
                     st.session_state.closed_days.append(d_input)
-                # 儲存進雲端
                 save_data("SYS_CLOSED_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
                 save_data("SYS_OPEN_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
                 st.rerun()
@@ -217,33 +209,61 @@ with st.sidebar:
                     st.session_state.closed_days.remove(d_input)
                 if d_input not in st.session_state.open_days:
                     st.session_state.open_days.append(d_input)
-                # 儲存進雲端
                 save_data("SYS_CLOSED_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
                 save_data("SYS_OPEN_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
                 st.rerun()
                 
         with st.expander("📢 公告"):
             ann = st.text_area("內容", st.session_state.announcement)
-            if st.button("更新"): 
+            if st.button("更新公告"): 
                 st.session_state.announcement = ann
-                # 儲存進雲端
                 save_data("SYS_ANNOUNCEMENT", ann)
                 st.rerun()
         
-        st.divider()
-        if st.button("💾 下載最新資料"):
-            latest_data = load_data()
-            data_list = []
-            for k, v in latest_data.items():
-                # 排除系統參數 SYS_ 開頭的資料，不讓它們出現在志工名單裡
-                if v.strip() and not str(k).startswith("SYS_"):
-                    parts = k.split("_")
-                    if len(parts) >= 4:
-                        data_list.append({"日期": parts[0], "時段": parts[1], "區域": parts[2], "志工": v})
-            if data_list:
-                st.download_button("下載 CSV", pd.DataFrame(data_list).to_csv(index=False, encoding="utf_8_sig"), "schedule.csv", "text/csv")
-            else:
-                st.warning("目前沒有資料可下載")
+        # ---------------------------------------------------------
+        # 🌟 新增：分月下載漂亮 EXCEL (CSV) 表格功能
+        # ---------------------------------------------------------
+        with st.expander("📥 下載每月排班表 (Excel支援)"):
+            st.write("系統會自動將資料整理成易於閱讀的表格格式。")
+            dl_opts = [f"{y}年{m:02d}月" for y, m in sorted(st.session_state.open_months_list)]
+            if dl_opts:
+                dl_sel = st.selectbox("請選擇要下載的月份", dl_opts)
+                
+                # 準備資料
+                y_str, m_str = dl_sel.replace("月","").split("年")
+                target_prefix = f"{y_str}-{m_str}" # 例如 2026-03
+                
+                data_list = []
+                # 從記憶體抓取最新的排班
+                for k, v in st.session_state.bookings.items():
+                    if v.strip() and not str(k).startswith("SYS_"):
+                        if k.startswith(target_prefix): # 只抓該月份的資料
+                            parts = k.split("_")
+                            if len(parts) >= 4:
+                                data_list.append({
+                                    "日期": parts[0], 
+                                    "時段": parts[1], 
+                                    "區域": parts[2], 
+                                    "志工姓名": v
+                                })
+                
+                if data_list:
+                    # 轉換成表格並排序
+                    df_dl = pd.DataFrame(data_list)
+                    df_dl = df_dl.sort_values(by=["日期", "時段", "區域"])
+                    
+                    # 轉成帶有 BOM 的 UTF-8 CSV，讓 Excel 點開不會變亂碼
+                    csv_data = df_dl.to_csv(index=False, encoding="utf_8_sig")
+                    
+                    st.download_button(
+                        label=f"💾 點此下載 {dl_sel} 班表",
+                        data=csv_data,
+                        file_name=f"王船文化館排班表_{dl_sel}.csv",
+                        mime="text/csv",
+                        type="primary"
+                    )
+                else:
+                    st.info("⚠️ 該月份目前尚無志工排班資料。")
 
 # --- 5. 主畫面 ---
 st.title("🚢 王船文化館 - 志工排班")
@@ -301,11 +321,16 @@ else:
                         
                         with cc[k]:
                             widget_key = f"in_{key}"
-                            nv = st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed")
+                            # 輸入框：當使用者輸入或修改名字後，nv 變數就會改變
+                            nv = st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed", placeholder=f"輸入姓名 (志工{k+1})")
+                            
+                            # 🌟 新增：只有當輸入框的內容與資料庫不同時，才顯示儲存按鈕
                             if nv != val:
-                                st.session_state.bookings[key] = nv
-                                save_data(key, nv)
-                                st.toast(f"✅ 已儲存：{nv}")
+                                if st.button("💾 確認儲存", key=f"btn_{key}", type="primary", use_container_width=True):
+                                    st.session_state.bookings[key] = nv
+                                    save_data(key, nv)
+                                    st.toast(f"✅ 已成功為 {nv} 登記排班！")
+                                    st.rerun() # 存檔後重整，按鈕會自動隱藏
                     st.divider()
         render_form("上午", t1)
         render_form("下午", t2)
