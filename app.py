@@ -220,9 +220,6 @@ with st.sidebar:
                 save_data("SYS_ANNOUNCEMENT", ann)
                 st.rerun()
         
-        # ---------------------------------------------------------
-        # 🌟 完美不亂碼 EXCEL 下載功能 (強制 BOM 標籤 + 完美排序)
-        # ---------------------------------------------------------
         with st.expander("📥 下載每月排班表 (Excel專用)"):
             st.write("系統會自動將資料整理成完美排版的表格。")
             dl_opts = [f"{y}年{m:02d}月" for y, m in sorted(st.session_state.open_months_list)]
@@ -247,11 +244,7 @@ with st.sidebar:
                 
                 if data_list:
                     df_dl = pd.DataFrame(data_list)
-                    
-                    # 依序排序：日期 -> 時段 (因為"上"的內碼小於"下", 所以上午會在下午前面) -> 區域
                     df_dl = df_dl.sort_values(by=["日期", "時段", "區域"])
-                    
-                    # ⚠️ 關鍵修正：強制加入 Excel 專用 utf-8-sig 的二進位編碼，杜絕亂碼！
                     csv_bytes = df_dl.to_csv(index=False).encode('utf-8-sig')
                     
                     st.download_button(
@@ -276,6 +269,40 @@ else:
     
     def render_cal(year, month, ctr):
         with ctr:
+            # ==========================================
+            # 🌟 新增：個人班表查詢功能 (放在日曆上方)
+            # ==========================================
+            with st.expander("🔍 點此查詢本月個人班表", expanded=False):
+                search_name = st.text_input("輸入姓名查詢：", key=f"search_{year}_{month}", placeholder="例如：陳大明")
+                if search_name.strip():
+                    target_prefix = f"{year}-{month:02d}"
+                    found_shifts = []
+                    
+                    # 搜尋符合該月份且包含該姓名的資料
+                    for k, v in st.session_state.bookings.items():
+                        if v.strip() and (search_name in v) and k.startswith(target_prefix) and not str(k).startswith("SYS_"):
+                            parts = k.split("_")
+                            if len(parts) >= 4:
+                                found_shifts.append({
+                                    "日期": parts[0],
+                                    "時段": parts[1],
+                                    "區域": parts[2]
+                                })
+                                
+                    if found_shifts:
+                        st.success(f"🎉 找到 **{search_name}** 在本月的排班共 **{len(found_shifts)}** 筆：")
+                        # 排序：日期由小到大 -> 上午優先於下午 -> 區域
+                        df_search = pd.DataFrame(found_shifts).sort_values(by=["日期", "時段", "區域"])
+                        
+                        # 漂亮的逐行顯示
+                        for _, row in df_search.iterrows():
+                            st.markdown(f"- 📅 **{row['日期']}** ({row['時段']}) 📍 {row['區域']}")
+                    else:
+                        st.warning(f"本月沒有找到「{search_name}」的排班記錄喔！")
+            
+            st.write("---")
+            # ==========================================
+            
             cols = st.columns(7)
             for i, n in enumerate(["週一","週二","週三","週四","週五","週六","週日"]):
                 cols[i].markdown(f"<div style='text-align:center;color:#666;font-size:12px;font-weight:bold;'>{n}</div>", unsafe_allow_html=True)
