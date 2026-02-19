@@ -101,6 +101,12 @@ ZONES = ["1F-沉浸室劇場", "1F-手扶梯驗票", "2F展區、特展", "3F-�
 ADMIN_PASSWORD = "1234"  # ⚠️ 記得把這裡改成您自己的專屬密碼！
 MAX_SLOTS = 2
 
+# 時間顯示對照表 (網頁顯示用)
+TIME_MAPPING = {
+    "上午": "上午(09:00-12:00)",
+    "下午": "下午(14:00-17:00)"
+}
+
 if 'bookings' not in st.session_state:
     raw_data = load_data()
     st.session_state.bookings = raw_data
@@ -270,7 +276,7 @@ else:
     def render_cal(year, month, ctr):
         with ctr:
             # ==========================================
-            # 🌟 新增：個人班表查詢功能 (放在日曆上方)
+            # 🌟 個人班表查詢功能 (加入時間顯示升級)
             # ==========================================
             with st.expander("🔍 點此查詢本月個人班表", expanded=False):
                 search_name = st.text_input("輸入姓名查詢：", key=f"search_{year}_{month}", placeholder="例如：陳大明")
@@ -278,30 +284,28 @@ else:
                     target_prefix = f"{year}-{month:02d}"
                     found_shifts = []
                     
-                    # 搜尋符合該月份且包含該姓名的資料
                     for k, v in st.session_state.bookings.items():
                         if v.strip() and (search_name in v) and k.startswith(target_prefix) and not str(k).startswith("SYS_"):
                             parts = k.split("_")
                             if len(parts) >= 4:
                                 found_shifts.append({
                                     "日期": parts[0],
-                                    "時段": parts[1],
+                                    "時段": parts[1], # 這裡一樣存著"上午"或"下午"
                                     "區域": parts[2]
                                 })
                                 
                     if found_shifts:
                         st.success(f"🎉 找到 **{search_name}** 在本月的排班共 **{len(found_shifts)}** 筆：")
-                        # 排序：日期由小到大 -> 上午優先於下午 -> 區域
                         df_search = pd.DataFrame(found_shifts).sort_values(by=["日期", "時段", "區域"])
                         
-                        # 漂亮的逐行顯示
                         for _, row in df_search.iterrows():
-                            st.markdown(f"- 📅 **{row['日期']}** ({row['時段']}) 📍 {row['區域']}")
+                            # 查詢結果也會自動加上詳細時間
+                            display_time = TIME_MAPPING.get(row['時段'], row['時段'])
+                            st.markdown(f"- 📅 **{row['日期']}** ({display_time}) 📍 {row['區域']}")
                     else:
                         st.warning(f"本月沒有找到「{search_name}」的排班記錄喔！")
             
             st.write("---")
-            # ==========================================
             
             cols = st.columns(7)
             for i, n in enumerate(["週一","週二","週三","週四","週五","週六","週日"]):
@@ -334,7 +338,8 @@ else:
         st.divider()
         st.subheader(f"✍️ {d.strftime('%Y-%m-%d')}")
         
-        t1, t2 = st.tabs(["🌞 上午", "🌤️ 下午"])
+        # 🌟 這裡將原本的分頁標籤加上詳細時間！
+        t1, t2 = st.tabs([f"🌞 {TIME_MAPPING['上午']}", f"🌤️ {TIME_MAPPING['下午']}"])
         
         def render_form(shift, ctr):
             with ctr:
@@ -342,6 +347,7 @@ else:
                     st.markdown(f"**📍 {z}**")
                     cc = st.columns(MAX_SLOTS)
                     for k in range(MAX_SLOTS):
+                        # ⚠️ 注意：傳進來的 shift 依然是乾淨的 "上午" / "下午"，保護資料庫關聯
                         key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
                         val = st.session_state.bookings.get(key, "")
                         
@@ -356,5 +362,7 @@ else:
                                     st.toast(f"✅ 已成功為 {nv} 登記排班！")
                                     st.rerun()
                     st.divider()
+        
+        # 傳進去的值依然保持不變
         render_form("上午", t1)
         render_form("下午", t2)
