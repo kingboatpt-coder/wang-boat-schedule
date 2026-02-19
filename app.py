@@ -4,10 +4,46 @@ from datetime import date, datetime
 import calendar
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import json
 
 # --- 1. 頁面設定 ---
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
+
+# ==========================================
+# 🌟 [新增 CSS 魔法] 強制手機顯示 7 格日曆模式
+# ==========================================
+st.markdown("""
+<style>
+@media (max-width: 576px) {
+    /* 1. 找到剛好有 7 個欄位（日曆）的區塊，強制橫向排列 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: hidden !important;
+    }
+    /* 2. 把每個格子硬性規定佔據 1/7 (約 14.28%) 的寬度，並消除多餘留白 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
+        width: 14.28% !important;
+        flex: 1 1 14.28% !important;
+        min-width: 0 !important;
+        padding: 1px !important;
+    }
+    /* 3. 縮小日曆按鈕的字體與高度，避免手機上破版 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
+        padding: 5px 0px !important;
+        font-size: 14px !important;
+        min-height: 40px !important;
+    }
+    /* 4. 縮小「休館」、「特休」等文字標籤 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div {
+        font-size: 12px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) small {
+        font-size: 10px !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+# ==========================================
 
 # --- 2. 連接 Google Sheets 資料庫 ---
 @st.cache_resource
@@ -16,9 +52,7 @@ def init_connection():
         st.error("❌ 錯誤：找不到 Secrets 設定。")
         st.stop()
     
-    # 直接讀取 secrets
     key_dict = st.secrets["textkey"]
-    
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     client = gspread.authorize(creds)
@@ -29,53 +63,41 @@ def load_data():
     try:
         client = init_connection()
         sheet = client.open("volunteer_db").sheet1 
-        # 讀取所有資料
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
         booking_dict = {}
-        
-        # 只要有資料就嘗試轉換
         if not df.empty:
-            # 確保欄位名稱小寫，避免大小寫問題
             df.columns = [str(c).lower() for c in df.columns]
             if "key" in df.columns and "value" in df.columns:
                 for index, row in df.iterrows():
                     booking_dict[str(row["key"])] = str(row["value"])
         return booking_dict
     except Exception as e:
-        # 如果讀取失敗(例如空表)，回傳空字典，不要讓程式崩潰
         return {}
 
-# 儲存資料 (修正版：更安全的寫法)
+# 儲存資料
 def save_data(key, value):
     try:
         client = init_connection()
         sheet = client.open("volunteer_db").sheet1
-        
-        # 嘗試尋找該 Key
         try:
             cell = sheet.find(key)
-            # 如果找到了，更新它
             sheet.update_cell(cell.row, 2, value)
         except:
-            # 如果「找不到」或是發生任何錯誤，就直接新增一行
-            # 這是最保險的做法，避免因版本問題導致報錯
             sheet.append_row([key, value])
-            
     except Exception as e:
-        st.error(f"❌ 存檔失敗 (Critical Error): {e}")
+        st.error(f"❌ 存檔失敗: {e}")
 
 # 初始化 Session State
 if 'bookings' not in st.session_state:
     st.session_state.bookings = load_data()
 
-# 更新時間戳記
 if 'last_updated' not in st.session_state:
     st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
 
 # --- 3. 參數與初始化 ---
 ZONES = ["1F-沉浸室劇場", "1F-手扶梯驗票", "2F展區、特展", "3F-展區", "4F-展區", "5F-閱讀區"]
-ADMIN_PASSWORD = "1234"
+ADMIN_PASSWORD = "1234"  # ⚠️ 記得把這裡改成您自己的專屬密碼！
 MAX_SLOTS = 2
 
 if 'announcement' not in st.session_state:
@@ -94,16 +116,12 @@ with st.sidebar:
     st.header("🚢 功能選單")
     st.caption(f"上次更新: {st.session_state.last_updated}")
     
-    # 手動更新按鈕
     if st.button("🔄 強制同步資料", type="primary"):
         st.cache_resource.clear()
         new_data = load_data()
         st.session_state.bookings = new_data
-        
-        # 強制更新輸入框狀態
         for db_key, db_val in new_data.items():
             st.session_state[f"in_{db_key}"] = db_val
-            
         st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
         st.toast("✅ 資料已同步")
         st.rerun()
@@ -115,7 +133,6 @@ with st.sidebar:
     if password == ADMIN_PASSWORD:
         st.success("✅ 已登入")
         
-        # 測試連線按鈕
         if st.button("🧪 測試 Google Sheet 連線"):
             try:
                 client = init_connection()
@@ -175,7 +192,7 @@ with st.sidebar:
                     if len(parts) >= 4:
                         data_list.append({"日期": parts[0], "時段": parts[1], "區域": parts[2], "志工": v})
             if data_list:
-                st.download_button("下載 CSV", pd.DataFrame(data_list).to_csv(index=False), "schedule.csv", "text/csv")
+                st.download_button("下載 CSV", pd.DataFrame(data_list).to_csv(index=False, encoding="utf_8_sig"), "schedule.csv", "text/csv")
             else:
                 st.warning("目前沒有資料可下載")
 
@@ -193,7 +210,8 @@ else:
         with ctr:
             cols = st.columns(7)
             for i, n in enumerate(["週一","週二","週三","週四","週五","週六","週日"]):
-                cols[i].markdown(f"<div style='text-align:center;color:#666;'>{n}</div>", unsafe_allow_html=True)
+                # 給星期標題加上一點樣式，確保手機上也置中
+                cols[i].markdown(f"<div style='text-align:center;color:#666;font-size:12px;font-weight:bold;'>{n}</div>", unsafe_allow_html=True)
             st.write("---")
             for week in calendar.monthcalendar(year, month):
                 cols = st.columns(7)
@@ -207,7 +225,7 @@ else:
                             elif i == 0: status = "closed"
                             
                             if status == "closed":
-                                st.markdown(f"<div style='background:#f0f0f0;color:#aaa;text-align:center;padding:10px;'>{d}<br><small>休</small></div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='background:#f0f0f0;color:#aaa;text-align:center;padding:5px 0px;border-radius:4px;'><strong>{d}</strong><br><small>休</small></div>", unsafe_allow_html=True)
                             else:
                                 is_sel = (st.session_state.selected_date == curr)
                                 if st.button(f"{d}", key=f"b_{year}_{month}_{d}", type="primary" if is_sel else "secondary", use_container_width=True):
@@ -234,7 +252,6 @@ else:
                         val = st.session_state.bookings.get(key, "")
                         
                         with cc[k]:
-                            # 輸入框邏輯
                             widget_key = f"in_{key}"
                             nv = st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed")
                             if nv != val:
