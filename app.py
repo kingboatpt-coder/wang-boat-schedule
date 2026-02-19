@@ -4,6 +4,7 @@ from datetime import date, datetime
 import calendar
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json
 
 # --- 1. 頁面設定 ---
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
@@ -14,24 +15,19 @@ st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", l
 st.markdown("""
 <style>
 @media (max-width: 576px) {
-    /* 1. 終極武器：CSS Grid。強迫 7 等分，且允許縮小到 0 (minmax) */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
         display: grid !important;
         grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-        gap: 2px !important; /* 格子間距只留 2px */
+        gap: 2px !important;
         width: 100% !important;
         padding: 0 !important;
     }
-
-    /* 2. 移除原本欄位的寬度限制，讓它們乖乖聽 Grid 的話 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
         width: 100% !important;
         min-width: 0 !important;
         padding: 0 !important;
         margin: 0 !important;
     }
-
-    /* 3. 按鈕與休館方塊：左右邊距歸零，讓可視空間最大化 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button,
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div[style*="background"] {
         width: 100% !important;
@@ -40,13 +36,9 @@ st.markdown("""
         margin: 0 !important;
         box-sizing: border-box !important;
     }
-    
-    /* 確保按鈕有基本高度好點擊 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
         min-height: 38px !important;
     }
-
-    /* 4. 字體縮小：這是確保不會撐破格子的最後防線 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) p,
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) strong {
         font-size: 13px !important;
@@ -76,7 +68,6 @@ def init_connection():
     client = gspread.authorize(creds)
     return client
 
-# 讀取資料
 def load_data():
     try:
         client = init_connection()
@@ -93,7 +84,6 @@ def load_data():
     except Exception as e:
         return {}
 
-# 儲存資料
 def save_data(key, value):
     try:
         client = init_connection()
@@ -106,28 +96,43 @@ def save_data(key, value):
     except Exception as e:
         st.error(f"❌ 存檔失敗: {e}")
 
-# 初始化 Session State
-if 'bookings' not in st.session_state:
-    st.session_state.bookings = load_data()
-
-if 'last_updated' not in st.session_state:
-    st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
-
-# --- 3. 參數與初始化 ---
+# --- 3. 初始化參數與從雲端讀取系統設定 ---
 ZONES = ["1F-沉浸室劇場", "1F-手扶梯驗票", "2F展區、特展", "3F-展區", "4F-展區", "5F-閱讀區"]
 ADMIN_PASSWORD = "1234"  # ⚠️ 記得把這裡改成您自己的專屬密碼！
 MAX_SLOTS = 2
 
-if 'announcement' not in st.session_state:
-    st.session_state.announcement = "歡迎！請點擊上方分頁切換月份進行登記。"
-if 'closed_days' not in st.session_state:
-    st.session_state.closed_days = []
-if 'open_days' not in st.session_state:
-    st.session_state.open_days = []
+if 'bookings' not in st.session_state:
+    raw_data = load_data()
+    st.session_state.bookings = raw_data
+    
+    # 讀取雲端儲存的「開放月份」
+    if "SYS_OPEN_MONTHS" in raw_data:
+        try: 
+            loaded_m = json.loads(raw_data["SYS_OPEN_MONTHS"])
+            st.session_state.open_months_list = [(m[0], m[1]) for m in loaded_m]
+        except: st.session_state.open_months_list = [(2026, 3)]
+    else: st.session_state.open_months_list = [(2026, 3)]
+        
+    # 讀取雲端儲存的「休館日」
+    if "SYS_CLOSED_DAYS" in raw_data:
+        try: st.session_state.closed_days = [datetime.strptime(d, "%Y-%m-%d").date() for d in json.loads(raw_data["SYS_CLOSED_DAYS"])]
+        except: st.session_state.closed_days = []
+    else: st.session_state.closed_days = []
+        
+    # 讀取雲端儲存的「開館日」
+    if "SYS_OPEN_DAYS" in raw_data:
+        try: st.session_state.open_days = [datetime.strptime(d, "%Y-%m-%d").date() for d in json.loads(raw_data["SYS_OPEN_DAYS"])]
+        except: st.session_state.open_days = []
+    else: st.session_state.open_days = []
+        
+    # 讀取雲端儲存的「公告」
+    st.session_state.announcement = raw_data.get("SYS_ANNOUNCEMENT", "歡迎！請點擊上方分頁切換月份進行登記。")
+
+if 'last_updated' not in st.session_state:
+    st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
+
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = None
-if 'open_months_list' not in st.session_state:
-    st.session_state.open_months_list = [(2026, 3)]
 
 # --- 4. 側邊欄 ---
 with st.sidebar:
@@ -138,8 +143,23 @@ with st.sidebar:
         st.cache_resource.clear()
         new_data = load_data()
         st.session_state.bookings = new_data
+        
+        # 同步更新系統參數
+        if "SYS_OPEN_MONTHS" in new_data:
+            try: st.session_state.open_months_list = [(m[0], m[1]) for m in json.loads(new_data["SYS_OPEN_MONTHS"])]
+            except: pass
+        if "SYS_CLOSED_DAYS" in new_data:
+            try: st.session_state.closed_days = [datetime.strptime(d, "%Y-%m-%d").date() for d in json.loads(new_data["SYS_CLOSED_DAYS"])]
+            except: pass
+        if "SYS_OPEN_DAYS" in new_data:
+            try: st.session_state.open_days = [datetime.strptime(d, "%Y-%m-%d").date() for d in json.loads(new_data["SYS_OPEN_DAYS"])]
+            except: pass
+        if "SYS_ANNOUNCEMENT" in new_data:
+            st.session_state.announcement = new_data["SYS_ANNOUNCEMENT"]
+            
         for db_key, db_val in new_data.items():
-            st.session_state[f"in_{db_key}"] = db_val
+            if not str(db_key).startswith("SYS_"): # 不要把系統參數變成輸入框的值
+                st.session_state[f"in_{db_key}"] = db_val
         st.session_state.last_updated = datetime.now().strftime("%H:%M:%S")
         st.toast("✅ 資料已同步")
         st.rerun()
@@ -151,14 +171,6 @@ with st.sidebar:
     if password == ADMIN_PASSWORD:
         st.success("✅ 已登入")
         
-        if st.button("🧪 測試 Google Sheet 連線"):
-            try:
-                client = init_connection()
-                sheet = client.open("volunteer_db").sheet1
-                st.success(f"連線成功！讀取到 {len(sheet.get_all_values())} 行資料。")
-            except Exception as e:
-                st.error(f"連線失敗: {e}")
-
         with st.expander("📅 管理開放月份"):
             current_list = sorted(st.session_state.open_months_list)
             if not current_list: st.warning("未開放月份")
@@ -171,6 +183,8 @@ with st.sidebar:
                 target = (add_y, add_m)
                 if target not in st.session_state.open_months_list:
                     st.session_state.open_months_list.append(target)
+                    # 儲存進雲端
+                    save_data("SYS_OPEN_MONTHS", json.dumps(st.session_state.open_months_list))
                     st.rerun()
 
             opts = [f"{y}年{m}月" for y, m in current_list]
@@ -178,26 +192,42 @@ with st.sidebar:
             if st.button("🗑️ 刪除"):
                 for s in rm_sel:
                     y, m = s.replace("月","").split("年")
-                    if (int(y), int(m)) in st.session_state.open_months_list:
-                        st.session_state.open_months_list.remove((int(y), int(m)))
+                    target = (int(y), int(m))
+                    if target in st.session_state.open_months_list:
+                        st.session_state.open_months_list.remove(target)
+                # 儲存進雲端
+                save_data("SYS_OPEN_MONTHS", json.dumps(st.session_state.open_months_list))
                 st.rerun()
 
         with st.expander("⛔ 休館設定"):
             d_input = st.date_input("日期", min_value=date(2025,1,1))
             c1, c2 = st.columns(2)
             if c1.button("休館 ❌"):
-                if d_input in st.session_state.open_days: st.session_state.open_days.remove(d_input)
-                st.session_state.closed_days.append(d_input)
+                if d_input in st.session_state.open_days: 
+                    st.session_state.open_days.remove(d_input)
+                if d_input not in st.session_state.closed_days:
+                    st.session_state.closed_days.append(d_input)
+                # 儲存進雲端
+                save_data("SYS_CLOSED_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
+                save_data("SYS_OPEN_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
                 st.rerun()
+                
             if c2.button("開館 🟢"):
-                if d_input in st.session_state.closed_days: st.session_state.closed_days.remove(d_input)
-                st.session_state.open_days.append(d_input)
+                if d_input in st.session_state.closed_days: 
+                    st.session_state.closed_days.remove(d_input)
+                if d_input not in st.session_state.open_days:
+                    st.session_state.open_days.append(d_input)
+                # 儲存進雲端
+                save_data("SYS_CLOSED_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
+                save_data("SYS_OPEN_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
                 st.rerun()
                 
         with st.expander("📢 公告"):
             ann = st.text_area("內容", st.session_state.announcement)
             if st.button("更新"): 
                 st.session_state.announcement = ann
+                # 儲存進雲端
+                save_data("SYS_ANNOUNCEMENT", ann)
                 st.rerun()
         
         st.divider()
@@ -205,7 +235,8 @@ with st.sidebar:
             latest_data = load_data()
             data_list = []
             for k, v in latest_data.items():
-                if v.strip():
+                # 排除系統參數 SYS_ 開頭的資料，不讓它們出現在志工名單裡
+                if v.strip() and not str(k).startswith("SYS_"):
                     parts = k.split("_")
                     if len(parts) >= 4:
                         data_list.append({"日期": parts[0], "時段": parts[1], "區域": parts[2], "志工": v})
@@ -228,7 +259,6 @@ else:
         with ctr:
             cols = st.columns(7)
             for i, n in enumerate(["週一","週二","週三","週四","週五","週六","週日"]):
-                # 給星期標題加上一點樣式，確保手機上也置中
                 cols[i].markdown(f"<div style='text-align:center;color:#666;font-size:12px;font-weight:bold;'>{n}</div>", unsafe_allow_html=True)
             st.write("---")
             for week in calendar.monthcalendar(year, month):
