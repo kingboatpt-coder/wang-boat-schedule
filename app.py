@@ -9,57 +9,54 @@ from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
 
 # ==========================================
-# 🌟 [究極 CSS 魔法] 強制手機日曆等比例縮放，絕不超出螢幕
+# 🌟 [終極 CSS 魔法] 使用 Grid 網格系統，保證絕對不爆框！
 # ==========================================
 st.markdown("""
 <style>
 @media (max-width: 576px) {
-    /* 1. 讓 7 格區塊絕對不換行，且總寬度鎖死在 100% 螢幕寬度 */
+    /* 1. 終極武器：CSS Grid。強迫 7 等分，且允許縮小到 0 (minmax) */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        gap: 2px !important; /* 格子間距縮到極小 */
+        display: grid !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+        gap: 2px !important; /* 格子間距只留 2px */
         width: 100% !important;
-        overflow: hidden !important; /* 隱藏超出的部分，強制鎖住 */
+        padding: 0 !important;
     }
-    
-    /* 2. 破除「最低寬度」限制，強制 7 等分 */
+
+    /* 2. 移除原本欄位的寬度限制，讓它們乖乖聽 Grid 的話 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
-        flex: 1 1 0 !important; /* 魔法指令：無條件平分空間 */
-        width: 0 !important;    /* 魔法指令：忽視內容原始寬度 */
-        min-width: 0 !important; 
-        padding: 0 !important;  
-    }
-    
-    /* 3. 按鈕的極限瘦身 */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
         width: 100% !important;
         min-width: 0 !important;
-        padding: 4px 0px !important; /* 左右邊距歸零 */
-        min-height: 35px !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
-    
-    /* 4. 休館方塊的極限瘦身 (利用樣式關鍵字抓取) */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div[style*="border-radius"] {
+
+    /* 3. 按鈕與休館方塊：左右邊距歸零，讓可視空間最大化 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button,
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div[style*="background"] {
         width: 100% !important;
         min-width: 0 !important;
         padding: 4px 0px !important;
+        margin: 0 !important;
         box-sizing: border-box !important;
     }
     
-    /* 5. 把所有字體縮小到剛好塞得下 */
+    /* 確保按鈕有基本高度好點擊 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
+        min-height: 38px !important;
+    }
+
+    /* 4. 字體縮小：這是確保不會撐破格子的最後防線 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) p,
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) strong {
         font-size: 13px !important;
-        line-height: 1 !important;
+        line-height: 1.1 !important;
     }
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) small {
         font-size: 9px !important;
     }
-    /* 處理星期標題 (週一~週日) */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div[style*="font-weight:bold"] {
         font-size: 11px !important;
-        padding: 0 !important;
     }
 }
 </style>
