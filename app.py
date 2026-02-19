@@ -275,9 +275,6 @@ else:
     
     def render_cal(year, month, ctr):
         with ctr:
-            # ==========================================
-            # 🌟 個人班表查詢功能 (加入時間顯示升級)
-            # ==========================================
             with st.expander("🔍 點此查詢本月個人班表", expanded=False):
                 search_name = st.text_input("輸入姓名查詢：", key=f"search_{year}_{month}", placeholder="例如：陳大明")
                 if search_name.strip():
@@ -290,7 +287,7 @@ else:
                             if len(parts) >= 4:
                                 found_shifts.append({
                                     "日期": parts[0],
-                                    "時段": parts[1], # 這裡一樣存著"上午"或"下午"
+                                    "時段": parts[1],
                                     "區域": parts[2]
                                 })
                                 
@@ -299,7 +296,6 @@ else:
                         df_search = pd.DataFrame(found_shifts).sort_values(by=["日期", "時段", "區域"])
                         
                         for _, row in df_search.iterrows():
-                            # 查詢結果也會自動加上詳細時間
                             display_time = TIME_MAPPING.get(row['時段'], row['時段'])
                             st.markdown(f"- 📅 **{row['日期']}** ({display_time}) 📍 {row['區域']}")
                     else:
@@ -336,9 +332,43 @@ else:
     if st.session_state.selected_date and (st.session_state.selected_date.year, st.session_state.selected_date.month) in sorted_months:
         d = st.session_state.selected_date
         st.divider()
-        st.subheader(f"✍️ {d.strftime('%Y-%m-%d')}")
         
-        # 🌟 這裡將原本的分頁標籤加上詳細時間！
+        # ==========================================
+        # 🌟 新增：統整型儲存按鈕 (與日期放在同一排)
+        # ==========================================
+        col_title, col_btn = st.columns([2, 1])
+        with col_title:
+            st.subheader(f"✍️ {d.strftime('%Y-%m-%d')} 排班表")
+            st.caption("輸入完畢後，請點擊右方按鈕統一儲存 👉")
+            
+        with col_btn:
+            # 加上一點微調讓按鈕對齊標題
+            st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+            if st.button("💾 儲存本日所有排班", type="primary", use_container_width=True):
+                changes_count = 0
+                
+                # 遍歷本日所有可能的欄位，檢查是否有變更
+                for shift in ["上午", "下午"]:
+                    for z in ZONES:
+                        for k in range(MAX_SLOTS):
+                            key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
+                            widget_key = f"in_{key}"
+                            
+                            # 讀取當前輸入框的值 vs 資料庫裡舊的值
+                            new_val = st.session_state.get(widget_key, st.session_state.bookings.get(key, ""))
+                            old_val = st.session_state.bookings.get(key, "")
+                            
+                            if new_val != old_val:
+                                st.session_state.bookings[key] = new_val
+                                save_data(key, new_val)
+                                changes_count += 1
+                                
+                if changes_count > 0:
+                    st.success(f"✅ 成功儲存 {changes_count} 筆排班異動！")
+                else:
+                    st.info("ℹ️ 檢查完畢，目前沒有修改任何資料喔。")
+        # ==========================================
+
         t1, t2 = st.tabs([f"🌞 {TIME_MAPPING['上午']}", f"🌤️ {TIME_MAPPING['下午']}"])
         
         def render_form(shift, ctr):
@@ -347,22 +377,14 @@ else:
                     st.markdown(f"**📍 {z}**")
                     cc = st.columns(MAX_SLOTS)
                     for k in range(MAX_SLOTS):
-                        # ⚠️ 注意：傳進來的 shift 依然是乾淨的 "上午" / "下午"，保護資料庫關聯
                         key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
                         val = st.session_state.bookings.get(key, "")
                         
                         with cc[k]:
                             widget_key = f"in_{key}"
-                            nv = st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed", placeholder=f"輸入姓名 (志工{k+1})")
-                            
-                            if nv != val:
-                                if st.button("💾 確認儲存", key=f"btn_{key}", type="primary", use_container_width=True):
-                                    st.session_state.bookings[key] = nv
-                                    save_data(key, nv)
-                                    st.toast(f"✅ 已成功為 {nv} 登記排班！")
-                                    st.rerun()
+                            # 🌟 現在這裡只剩下乾淨的輸入框，沒有煩人的按鈕了！
+                            st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed", placeholder=f"輸入姓名 (志工{k+1})")
                     st.divider()
         
-        # 傳進去的值依然保持不變
         render_form("上午", t1)
         render_form("下午", t2)
