@@ -221,23 +221,21 @@ with st.sidebar:
                 st.rerun()
         
         # ---------------------------------------------------------
-        # 🌟 新增：分月下載漂亮 EXCEL (CSV) 表格功能
+        # 🌟 完美不亂碼 EXCEL 下載功能 (強制 BOM 標籤 + 完美排序)
         # ---------------------------------------------------------
-        with st.expander("📥 下載每月排班表 (Excel支援)"):
-            st.write("系統會自動將資料整理成易於閱讀的表格格式。")
+        with st.expander("📥 下載每月排班表 (Excel專用)"):
+            st.write("系統會自動將資料整理成完美排版的表格。")
             dl_opts = [f"{y}年{m:02d}月" for y, m in sorted(st.session_state.open_months_list)]
             if dl_opts:
                 dl_sel = st.selectbox("請選擇要下載的月份", dl_opts)
                 
-                # 準備資料
                 y_str, m_str = dl_sel.replace("月","").split("年")
-                target_prefix = f"{y_str}-{m_str}" # 例如 2026-03
+                target_prefix = f"{y_str}-{m_str}"
                 
                 data_list = []
-                # 從記憶體抓取最新的排班
                 for k, v in st.session_state.bookings.items():
                     if v.strip() and not str(k).startswith("SYS_"):
-                        if k.startswith(target_prefix): # 只抓該月份的資料
+                        if k.startswith(target_prefix): 
                             parts = k.split("_")
                             if len(parts) >= 4:
                                 data_list.append({
@@ -248,16 +246,17 @@ with st.sidebar:
                                 })
                 
                 if data_list:
-                    # 轉換成表格並排序
                     df_dl = pd.DataFrame(data_list)
+                    
+                    # 依序排序：日期 -> 時段 (因為"上"的內碼小於"下", 所以上午會在下午前面) -> 區域
                     df_dl = df_dl.sort_values(by=["日期", "時段", "區域"])
                     
-                    # 轉成帶有 BOM 的 UTF-8 CSV，讓 Excel 點開不會變亂碼
-                    csv_data = df_dl.to_csv(index=False, encoding="utf_8_sig")
+                    # ⚠️ 關鍵修正：強制加入 Excel 專用 utf-8-sig 的二進位編碼，杜絕亂碼！
+                    csv_bytes = df_dl.to_csv(index=False).encode('utf-8-sig')
                     
                     st.download_button(
                         label=f"💾 點此下載 {dl_sel} 班表",
-                        data=csv_data,
+                        data=csv_bytes,
                         file_name=f"王船文化館排班表_{dl_sel}.csv",
                         mime="text/csv",
                         type="primary"
@@ -321,16 +320,14 @@ else:
                         
                         with cc[k]:
                             widget_key = f"in_{key}"
-                            # 輸入框：當使用者輸入或修改名字後，nv 變數就會改變
                             nv = st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed", placeholder=f"輸入姓名 (志工{k+1})")
                             
-                            # 🌟 新增：只有當輸入框的內容與資料庫不同時，才顯示儲存按鈕
                             if nv != val:
                                 if st.button("💾 確認儲存", key=f"btn_{key}", type="primary", use_container_width=True):
                                     st.session_state.bookings[key] = nv
                                     save_data(key, nv)
                                     st.toast(f"✅ 已成功為 {nv} 登記排班！")
-                                    st.rerun() # 存檔後重整，按鈕會自動隱藏
+                                    st.rerun()
                     st.divider()
         render_form("上午", t1)
         render_form("下午", t2)
