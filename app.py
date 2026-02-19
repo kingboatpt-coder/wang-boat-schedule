@@ -14,41 +14,52 @@ st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", l
 st.markdown("""
 <style>
 @media (max-width: 576px) {
-    /* 1. 針對 7 格日曆區塊：強制不換行，並大幅縮小「格與格之間的空隙」 */
+    /* 1. 讓 7 格區塊絕對不換行，且總寬度鎖死在 100% 螢幕寬度 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
+        display: flex !important;
         flex-wrap: nowrap !important;
-        gap: 2px !important; /* 把原本 16px 的巨大空隙縮小到 2px */
+        gap: 2px !important; /* 格子間距縮到極小 */
+        width: 100% !important;
+        overflow: hidden !important; /* 隱藏超出的部分，強制鎖住 */
     }
     
-    /* 2. 針對每一個直列：強制平分寬度，並允許無限縮小 */
+    /* 2. 破除「最低寬度」限制，強制 7 等分 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
-        width: 14.28% !important;
-        min-width: 0 !important; /* 解除最低寬度限制，這句最關鍵 */
-        flex: 1 1 0% !important;
+        flex: 1 1 0 !important; /* 魔法指令：無條件平分空間 */
+        width: 0 !important;    /* 魔法指令：忽視內容原始寬度 */
+        min-width: 0 !important; 
+        padding: 0 !important;  
     }
     
-    /* 3. 針對按鈕：消除左右多餘的留白，讓數字能完整顯示 */
+    /* 3. 按鈕的極限瘦身 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
         width: 100% !important;
-        min-width: 0 !important; 
-        padding: 4px 0px !important; /* 上下 4px，左右 0px */
+        min-width: 0 !important;
+        padding: 4px 0px !important; /* 左右邊距歸零 */
         min-height: 35px !important;
     }
     
-    /* 4. 縮小按鈕內的數字字體 */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button p {
-        font-size: 14px !important;
+    /* 4. 休館方塊的極限瘦身 (利用樣式關鍵字抓取) */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div[style*="border-radius"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 4px 0px !important;
+        box-sizing: border-box !important;
     }
     
-    /* 5. 縮小「休館/特休」方塊的內邊距與字體 */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] > div > div > div > div {
-        padding: 2px 0px !important;
-    }
+    /* 5. 把所有字體縮小到剛好塞得下 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) p,
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) strong {
-        font-size: 14px !important;
+        font-size: 13px !important;
+        line-height: 1 !important;
     }
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) small {
-        font-size: 10px !important;
+        font-size: 9px !important;
+    }
+    /* 處理星期標題 (週一~週日) */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div[style*="font-weight:bold"] {
+        font-size: 11px !important;
+        padding: 0 !important;
     }
 }
 </style>
@@ -220,6 +231,7 @@ else:
         with ctr:
             cols = st.columns(7)
             for i, n in enumerate(["週一","週二","週三","週四","週五","週六","週日"]):
+                # 給星期標題加上一點樣式，確保手機上也置中
                 cols[i].markdown(f"<div style='text-align:center;color:#666;font-size:12px;font-weight:bold;'>{n}</div>", unsafe_allow_html=True)
             st.write("---")
             for week in calendar.monthcalendar(year, month):
