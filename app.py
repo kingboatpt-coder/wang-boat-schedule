@@ -9,33 +9,43 @@ from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
 
 # ==========================================
-# 🌟 [新增 CSS 魔法] 強制手機顯示 7 格日曆模式
+# 🌟 [究極 CSS 魔法] 強制手機日曆等比例縮放，絕不超出螢幕
 # ==========================================
 st.markdown("""
 <style>
 @media (max-width: 576px) {
-    /* 1. 找到剛好有 7 個欄位（日曆）的區塊，強制橫向排列 */
+    /* 1. 針對 7 格日曆區塊：強制不換行，並大幅縮小「格與格之間的空隙」 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
-        flex-direction: row !important;
         flex-wrap: nowrap !important;
-        overflow-x: hidden !important;
+        gap: 2px !important; /* 把原本 16px 的巨大空隙縮小到 2px */
     }
-    /* 2. 把每個格子硬性規定佔據 1/7 (約 14.28%) 的寬度，並消除多餘留白 */
+    
+    /* 2. 針對每一個直列：強制平分寬度，並允許無限縮小 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
         width: 14.28% !important;
-        flex: 1 1 14.28% !important;
-        min-width: 0 !important;
-        padding: 1px !important;
+        min-width: 0 !important; /* 解除最低寬度限制，這句最關鍵 */
+        flex: 1 1 0% !important;
     }
-    /* 3. 縮小日曆按鈕的字體與高度，避免手機上破版 */
+    
+    /* 3. 針對按鈕：消除左右多餘的留白，讓數字能完整顯示 */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
-        padding: 5px 0px !important;
-        font-size: 14px !important;
-        min-height: 40px !important;
+        width: 100% !important;
+        min-width: 0 !important; 
+        padding: 4px 0px !important; /* 上下 4px，左右 0px */
+        min-height: 35px !important;
     }
-    /* 4. 縮小「休館」、「特休」等文字標籤 */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div {
-        font-size: 12px !important;
+    
+    /* 4. 縮小按鈕內的數字字體 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button p {
+        font-size: 14px !important;
+    }
+    
+    /* 5. 縮小「休館/特休」方塊的內邊距與字體 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] > div > div > div > div {
+        padding: 2px 0px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) strong {
+        font-size: 14px !important;
     }
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) small {
         font-size: 10px !important;
@@ -210,7 +220,6 @@ else:
         with ctr:
             cols = st.columns(7)
             for i, n in enumerate(["週一","週二","週三","週四","週五","週六","週日"]):
-                # 給星期標題加上一點樣式，確保手機上也置中
                 cols[i].markdown(f"<div style='text-align:center;color:#666;font-size:12px;font-weight:bold;'>{n}</div>", unsafe_allow_html=True)
             st.write("---")
             for week in calendar.monthcalendar(year, month):
