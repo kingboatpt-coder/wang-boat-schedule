@@ -276,30 +276,40 @@ else:
     def render_cal(year, month, ctr):
         with ctr:
             with st.expander("🔍 點此查詢本月個人班表", expanded=False):
-                search_name = st.text_input("輸入姓名查詢：", key=f"search_{year}_{month}", placeholder="例如：陳大明")
-                if search_name.strip():
-                    target_prefix = f"{year}-{month:02d}"
-                    found_shifts = []
-                    
-                    for k, v in st.session_state.bookings.items():
-                        if v.strip() and (search_name in v) and k.startswith(target_prefix) and not str(k).startswith("SYS_"):
-                            parts = k.split("_")
-                            if len(parts) >= 4:
-                                found_shifts.append({
-                                    "日期": parts[0],
-                                    "時段": parts[1],
-                                    "區域": parts[2]
-                                })
-                                
-                    if found_shifts:
-                        st.success(f"🎉 找到 **{search_name}** 在本月的排班共 **{len(found_shifts)}** 筆：")
-                        df_search = pd.DataFrame(found_shifts).sort_values(by=["日期", "時段", "區域"])
+                # 🌟 新增：將輸入框與查詢按鈕並排
+                sc1, sc2 = st.columns([3, 1])
+                with sc1:
+                    search_name = st.text_input("輸入姓名", key=f"search_{year}_{month}", placeholder="輸入姓名查詢 (例如：陳大明)", label_visibility="collapsed")
+                with sc2:
+                    do_search = st.button("🔍 查詢", key=f"btn_search_{year}_{month}", use_container_width=True)
+
+                # 🌟 新增：只有在按下「查詢」按鈕時，才會執行並顯示結果
+                if do_search:
+                    if search_name.strip():
+                        target_prefix = f"{year}-{month:02d}"
+                        found_shifts = []
                         
-                        for _, row in df_search.iterrows():
-                            display_time = TIME_MAPPING.get(row['時段'], row['時段'])
-                            st.markdown(f"- 📅 **{row['日期']}** ({display_time}) 📍 {row['區域']}")
+                        for k, v in st.session_state.bookings.items():
+                            if v.strip() and (search_name in v) and k.startswith(target_prefix) and not str(k).startswith("SYS_"):
+                                parts = k.split("_")
+                                if len(parts) >= 4:
+                                    found_shifts.append({
+                                        "日期": parts[0],
+                                        "時段": parts[1],
+                                        "區域": parts[2]
+                                    })
+                                    
+                        if found_shifts:
+                            st.success(f"🎉 找到 **{search_name}** 在本月的排班共 **{len(found_shifts)}** 筆：")
+                            df_search = pd.DataFrame(found_shifts).sort_values(by=["日期", "時段", "區域"])
+                            
+                            for _, row in df_search.iterrows():
+                                display_time = TIME_MAPPING.get(row['時段'], row['時段'])
+                                st.markdown(f"- 📅 **{row['日期']}** ({display_time}) 📍 {row['區域']}")
+                        else:
+                            st.warning(f"本月沒有找到「{search_name}」的排班記錄喔！")
                     else:
-                        st.warning(f"本月沒有找到「{search_name}」的排班記錄喔！")
+                        st.info("⚠️ 請先輸入姓名，再點擊查詢按鈕喔！")
             
             st.write("---")
             
@@ -333,28 +343,21 @@ else:
         d = st.session_state.selected_date
         st.divider()
         
-        # ==========================================
-        # 🌟 新增：統整型儲存按鈕 (與日期放在同一排)
-        # ==========================================
+        # 統整型儲存按鈕 (與日期放在同一排)
         col_title, col_btn = st.columns([2, 1])
         with col_title:
             st.subheader(f"✍️ {d.strftime('%Y-%m-%d')} 排班表")
             st.caption("輸入完畢後，請點擊右方按鈕統一儲存 👉")
             
         with col_btn:
-            # 加上一點微調讓按鈕對齊標題
             st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
             if st.button("💾 儲存本日所有排班", type="primary", use_container_width=True):
                 changes_count = 0
-                
-                # 遍歷本日所有可能的欄位，檢查是否有變更
                 for shift in ["上午", "下午"]:
                     for z in ZONES:
                         for k in range(MAX_SLOTS):
                             key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
                             widget_key = f"in_{key}"
-                            
-                            # 讀取當前輸入框的值 vs 資料庫裡舊的值
                             new_val = st.session_state.get(widget_key, st.session_state.bookings.get(key, ""))
                             old_val = st.session_state.bookings.get(key, "")
                             
@@ -367,7 +370,6 @@ else:
                     st.success(f"✅ 成功儲存 {changes_count} 筆排班異動！")
                 else:
                     st.info("ℹ️ 檢查完畢，目前沒有修改任何資料喔。")
-        # ==========================================
 
         t1, t2 = st.tabs([f"🌞 {TIME_MAPPING['上午']}", f"🌤️ {TIME_MAPPING['下午']}"])
         
@@ -382,7 +384,6 @@ else:
                         
                         with cc[k]:
                             widget_key = f"in_{key}"
-                            # 🌟 現在這裡只剩下乾淨的輸入框，沒有煩人的按鈕了！
                             st.text_input(f"志工{k+1}", val, key=widget_key, label_visibility="collapsed", placeholder=f"輸入姓名 (志工{k+1})")
                     st.divider()
         
