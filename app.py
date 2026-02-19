@@ -276,14 +276,12 @@ else:
     def render_cal(year, month, ctr):
         with ctr:
             with st.expander("🔍 點此查詢本月個人班表", expanded=False):
-                # 🌟 新增：將輸入框與查詢按鈕並排
                 sc1, sc2 = st.columns([3, 1])
                 with sc1:
                     search_name = st.text_input("輸入姓名", key=f"search_{year}_{month}", placeholder="輸入姓名查詢 (例如：陳大明)", label_visibility="collapsed")
                 with sc2:
                     do_search = st.button("🔍 查詢", key=f"btn_search_{year}_{month}", use_container_width=True)
 
-                # 🌟 新增：只有在按下「查詢」按鈕時，才會執行並顯示結果
                 if do_search:
                     if search_name.strip():
                         target_prefix = f"{year}-{month:02d}"
@@ -343,7 +341,6 @@ else:
         d = st.session_state.selected_date
         st.divider()
         
-        # 統整型儲存按鈕 (與日期放在同一排)
         col_title, col_btn = st.columns([2, 1])
         with col_title:
             st.subheader(f"✍️ {d.strftime('%Y-%m-%d')} 排班表")
@@ -352,24 +349,55 @@ else:
         with col_btn:
             st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
             if st.button("💾 儲存本日所有排班", type="primary", use_container_width=True):
+                # ==========================================
+                # 🛡️ 終極防搶班機制：先抓雲端最新資料進行比對
+                # ==========================================
+                fresh_db = load_data() # 向資料庫要最新鮮的狀態
                 changes_count = 0
+                conflicts = []
+                
                 for shift in ["上午", "下午"]:
                     for z in ZONES:
                         for k in range(MAX_SLOTS):
                             key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
                             widget_key = f"in_{key}"
+                            
+                            # 讀取當前輸入框的值 (new_val) 與使用者當初看到的舊值 (old_val)
                             new_val = st.session_state.get(widget_key, st.session_state.bookings.get(key, ""))
                             old_val = st.session_state.bookings.get(key, "")
                             
                             if new_val != old_val:
-                                st.session_state.bookings[key] = new_val
-                                save_data(key, new_val)
-                                changes_count += 1
+                                # 發現使用者有修改！開始檢查雲端有沒有被別人動過
+                                current_cloud_val = fresh_db.get(key, "")
                                 
-                if changes_count > 0:
+                                if current_cloud_val != old_val:
+                                    # ⚠️ 發生衝突！雲端資料變了，代表被別人先存走了
+                                    display_name = current_cloud_val if current_cloud_val.strip() else "被清空"
+                                    conflicts.append(f"{shift} {z} (志工{k+1}) 已變成「{display_name}」")
+                                    
+                                    # 把本地記憶強制換成別人存的最新名字
+                                    st.session_state.bookings[key] = current_cloud_val
+                                    # 清除輸入框殘留的文字，等一下重整時就會顯示出別人的名字
+                                    if widget_key in st.session_state:
+                                        del st.session_state[widget_key]
+                                else:
+                                    # ✅ 安全無虞，沒人搶！正式存入資料庫
+                                    st.session_state.bookings[key] = new_val
+                                    save_data(key, new_val)
+                                    fresh_db[key] = new_val # 同步更新剛抓下來的 fresh_db
+                                    changes_count += 1
+                                
+                if conflicts:
+                    st.error("⚠️ **動作暫停！您剛才填寫的部分時段，已經被別人先排走了：**\n\n" + "\n".join([f"- {msg}" for msg in conflicts]))
+                    st.info("🔄 畫面格子的名字已經自動更新。如果您已經跟對方協調好，確認要蓋過對方的排班，請**重新在格子內輸入您的名字並再次點擊儲存**。")
+                    if changes_count > 0:
+                        st.success(f"✅ 您填寫的其餘 {changes_count} 筆排班未發生衝突，已成功為您保留！")
+                elif changes_count > 0:
                     st.success(f"✅ 成功儲存 {changes_count} 筆排班異動！")
+                    st.rerun() # 儲存成功後重新整理畫面
                 else:
                     st.info("ℹ️ 檢查完畢，目前沒有修改任何資料喔。")
+                # ==========================================
 
         t1, t2 = st.tabs([f"🌞 {TIME_MAPPING['上午']}", f"🌤️ {TIME_MAPPING['下午']}"])
         
