@@ -17,140 +17,138 @@ except ImportError:
 st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide")
 
 # ─────────────────────────────────────────
-#  GLOBAL CSS (容器限制修正版)
+#  GLOBAL CSS (針對手機直立模式的極限修正)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-/* 1. 隱藏干擾元件 */
+/* 1. 隱藏不必要的元件，爭取空間 */
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stToolbar"], [data-testid="stDecoration"], section[data-testid="stSidebar"] { display: none !important; }
 
-/* 2. 背景與主容器設定 */
-.stApp { 
-    background-color: #e8e3d8 !important;
-}
-
-/* ⭐⭐⭐ 關鍵修正：鎖定最大寬度 ⭐⭐⭐ */
+/* 2. 主容器設定：確保在手機上貼邊顯示 */
+.stApp { background-color: #e8e3d8 !important; }
 .block-container {
-    padding-top: 20px !important;
-    padding-bottom: 40px !important;
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-    
-    /* 這裡強制鎖定，不管是電腦還是手機，最大就是 460px */
-    max-width: 460px !important; 
-    margin: 0 auto !important; /* 讓它在電腦上置中 */
+    padding-top: 10px !important;
+    padding-bottom: 20px !important;
+    padding-left: 2px !important;  /* 極限貼邊 */
+    padding-right: 2px !important; /* 極限貼邊 */
+    max-width: 100% !important;
 }
 
-/* 3. 強制 7 欄並排 (絕對不換行) */
+/* ⭐⭐⭐ 核心：解決手機直立超出螢幕的問題 ⭐⭐⭐ */
+
+/* 讓存放7個格子的容器強制橫排，且不允許溢出 */
 div[data-testid="stHorizontalBlock"] {
     display: flex !important;
-    flex-wrap: nowrap !important; /* 禁止換行 */
-    gap: 3px !important;          /* 欄位間距 */
-    align-items: center !important;
-    justify-content: center !important;
+    flex-wrap: nowrap !important; /* 絕對禁止換行 */
+    width: 100% !important;
+    gap: 1px !important;          /* 格子間僅留 1px 縫隙 */
+    justify-content: space-between !important;
 }
 
-/* 4. 強制欄位均分寬度 */
+/* 強制每個格子 (Column) 寬度鎖死為 1/7 */
 div[data-testid="column"] {
-    flex: 1 1 0px !important;     /* 均分空間 */
-    width: 0px !important;        /* 騙瀏覽器縮小 */
-    min-width: 0px !important;    /* 允許縮到無限小 */
+    flex: 1 1 0px !important;     /* 讓所有格子平分空間 */
+    width: 14.2% !important;      /* 鎖定寬度百分比 */
+    min-width: 0px !important;    /* 允許縮到無限小，這點最重要 */
+    max-width: 14.2% !important;  /* 不准變大 */
     padding: 0 !important;
     margin: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;  /* 內容太大就切掉，不要撐開 */
 }
 
-/* 5. 按鈕樣式 (固定高度，避免變成巨型方塊) */
+/* 按鈕本體設定 */
 div[data-testid="stButton"] {
     width: 100% !important;
-    margin: 0 !important;
 }
 
 div[data-testid="stButton"] button {
     width: 100% !important;
     min-width: 0px !important;
-    padding: 0px !important;
+    padding: 0px !important;      /* 移除內距 */
     margin: 0px !important;
-    
-    /* ⭐ 固定高度，不再用比例，這樣才穩 ⭐ */
-    height: 42px !important; 
-    
-    border-radius: 6px !important;
+    border-radius: 4px !important;
     border: 1px solid #ccc !important;
     display: flex;
     align-items: center;
     justify-content: center;
+    line-height: 1 !important;
     box-shadow: none !important;
-    
-    /* 字體設定 */
-    font-size: 14px !important;
-    font-weight: 600 !important;
+}
+
+/* 內層文字設定：這也是撐開的主因之一 */
+div[data-testid="stButton"] button p {
+    margin: 0 !important;
+    padding: 0 !important;
     line-height: 1 !important;
 }
 
-/* 內層文字強制不換行 */
-div[data-testid="stButton"] button p {
-    font-size: 14px !important;
-    white-space: nowrap !important;
+/* 📱 手機版特定調整 (螢幕寬度 < 500px，即直立模式) */
+@media (max-width: 500px) {
+    /* 按鈕高度與字體縮小 */
+    div[data-testid="stButton"] button {
+        height: 38px !important;      /* 固定高度 */
+        font-size: 13px !important;   /* 字體縮小 */
+    }
+    
+    /* 強制 Streamlit 內部文字也縮小 */
+    div[data-testid="stButton"] button p {
+        font-size: 13px !important;
+    }
+
+    /* 星期標題縮小 */
+    .day-header {
+        font-size: 11px !important;
+        margin-bottom: 2px !important;
+    }
+    
+    /* 導航列 (月份) 縮小 */
+    .nav-label {
+        font-size: 18px !important;
+    }
 }
 
-/* 6. 星期標題 */
-.day-header {
-    text-align: center; 
-    font-size: 12px; 
-    font-weight: 700; 
-    color: #666; 
-    margin-bottom: 4px;
+/* 💻 電腦版調整 (螢幕寬度 > 500px) */
+@media (min-width: 501px) {
+    .block-container { max-width: 500px !important; padding: 20px !important; }
+    div[data-testid="stButton"] button { height: 48px !important; font-size: 16px !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 4px !important; }
 }
+
+/* ── 其他 UI 美化 ── */
+.day-header { text-align: center; font-weight: 700; color: #666; margin-bottom: 4px; }
 .day-header.sunday { color: #cc0000; }
+.nav-label { font-weight: 700; text-align: center; color: #333; white-space: nowrap; }
 
-/* 7. 導航列 (月份) */
-.nav-label {
-    font-size: 20px; 
-    font-weight: 700; 
-    text-align: center; 
-    color: #333; 
-    white-space: nowrap;
-}
-
-/* 8. 按鈕狀態顏色 */
 button:disabled {
-    background-color: #e0e0e0 !important;
-    color: #bbb !important;
-    border: 1px solid #ccc !important;
-    opacity: 0.6 !important;
+    background-color: #e5e5e5 !important; color: #bbb !important;
+    border: 1px solid #ddd !important; cursor: not-allowed !important; opacity: 0.8 !important;
 }
-
 button[kind="primary"] {
-    background-color: #ef4444 !important; /* 紅色 */
-    color: white !important;
-    border: none !important;
+    background-color: #ef4444 !important; color: white !important; border: none !important;
 }
 
-/* 9. 進入排班按鈕 (特別樣式) */
+/* 進入排班按鈕 */
 .enter-btn-wrap button {
-    background-color: white !important;
-    color: #333 !important;
-    border: 1.5px solid #333 !important;
-    margin-top: 20px !important;
-    height: 48px !important; /* 這個可以大一點 */
-    font-size: 16px !important;
+    background-color: white !important; color: #333 !important;
+    border: 1.5px solid #333 !important; margin-top: 20px !important;
+    height: 48px !important; width: 100% !important; font-size: 16px !important;
 }
 
-/* 10. 公告欄與其他 */
+/* 公告與表格 */
 .ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 15px 0; }
-.ann-title { border-bottom: 1.5px solid #333; padding: 10px; font-weight: 700; text-align: center; }
+.ann-title { border-bottom: 1.5px solid #333; padding: 8px; font-weight: 700; text-align: center; }
 .ann-body { padding: 12px; font-size: 14px; line-height: 1.6; color: #333; }
 
-/* 11. Grid 表格樣式 */
-.wk-wrap { overflow-x: auto; margin: 10px 0; }
+.wk-title { font-size: 20px; font-weight: 700; margin: 10px 5px; }
+.wk-wrap { overflow-x: auto; margin: 5px 0; }
 .wk-tbl { border-collapse: collapse; width: 100%; font-size: 11px; }
 .wk-tbl th, .wk-tbl td { border: 1px solid #333; padding: 4px 2px; text-align: center; }
 .wk-filled-cell { background: #FFD700; }
-.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 10px 0; }
-.bot-join { background: #4ECDC4; border-radius: 10px; padding: 12px; text-align: center; font-weight: 600; color: #111; }
-.admin-access-wrap button { background: transparent !important; color: #999 !important; border: none !important; font-size: 12px !important; }
+.wk-empty-cell { background: #FFE033; height: 20px; }
+.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 6px 0; }
+.bot-join { background: #4ECDC4; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; color: #111; }
+.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -276,7 +274,7 @@ def page_calendar():
     weeks = get_weeks(year, month)
     sel_start = st.session_state.sel_week_start
 
-    # ── Month Navigation (使用 columns 來排列： [ < ] [ Month Year ] [ > ]) ──
+    # ── Month Navigation (使用 columns 來排列) ──
     c_nav = st.container()
     c1, c2, c3 = c_nav.columns([1, 4, 1])
     
@@ -295,34 +293,36 @@ def page_calendar():
 
     st.write("") 
 
-    # ── Days Header ──
-    header_cols = st.columns(7)
-    days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    for i, label in enumerate(days_labels):
-        cls = "day-header sunday" if i == 6 else "day-header"
-        header_cols[i].markdown(f'<div class="{cls}">{label}</div>', unsafe_allow_html=True)
+    # ── Days Header (7列) ──
+    # 使用 container 包裹，確保 CSS 選擇器生效
+    with st.container():
+        header_cols = st.columns(7)
+        days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for i, label in enumerate(days_labels):
+            cls = "day-header sunday" if i == 6 else "day-header"
+            header_cols[i].markdown(f'<div class="{cls}">{label}</div>', unsafe_allow_html=True)
 
-    # ── Calendar Grid ──
-    for ws, days in weeks:
-        is_selected = (sel_start == ws)
-        btn_type = "primary" if is_selected else "secondary"
+        # ── Calendar Grid ──
+        for ws, days in weeks:
+            is_selected = (sel_start == ws)
+            btn_type = "primary" if is_selected else "secondary"
 
-        dcols = st.columns(7)
-        
-        for i, d in enumerate(days):
-            with dcols[i]:
-                # 1. 隱藏非本月日期 (顯示空白)
-                if d.month != month:
-                    st.empty() 
-                else:
-                    # 2. 判斷是否休館
-                    is_closed = not is_open(d)
-                    label = str(d.day)
-                    
-                    # 3. 按鈕邏輯
-                    if st.button(label, key=f"btn_{d}", type=btn_type, disabled=is_closed, use_container_width=True):
-                        st.session_state.sel_week_start = ws
-                        st.rerun()
+            dcols = st.columns(7)
+            
+            for i, d in enumerate(days):
+                with dcols[i]:
+                    # 1. 隱藏非本月
+                    if d.month != month:
+                        st.empty() 
+                    else:
+                        # 2. 判斷休館
+                        is_closed = not is_open(d)
+                        label = str(d.day)
+                        
+                        # 3. 按鈕
+                        if st.button(label, key=f"btn_{d}", type=btn_type, disabled=is_closed, use_container_width=True):
+                            st.session_state.sel_week_start = ws
+                            st.rerun()
 
     # ── Enter Scheduling Button ──
     if sel_start:
