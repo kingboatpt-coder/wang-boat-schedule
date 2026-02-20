@@ -13,89 +13,92 @@ except ImportError:
 
 st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide")
 
-INTERNAL_ZONES    = ["Z1","Z2","Z3","Z4","Z5","Z6"]
+INTERNAL_ZONES     = ["Z1","Z2","Z3","Z4","Z5","Z6"]
 DEFAULT_ZONE_NAMES = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
 ADMIN_PW = "1234"
 WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
 MON_EN = ["","January","February","March","April","May","June",
            "July","August","September","October","November","December"]
 
-# ──────────────────────────────────────────
-#  CSS
-# ──────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
+#  CSS  — NO div-wrapper pairs; style native Streamlit nodes
+# ──────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Reset ── */
+/* ── chrome ── */
 #MainMenu,footer,header{visibility:hidden;}
 [data-testid="stToolbar"],[data-testid="stDecoration"],
 [data-testid="stElementToolbar"],
 section[data-testid="stSidebar"]{display:none!important;}
 
-/* ── Layout ── */
-.stApp{background-color:#e8e3d8!important;}
+/* ── global ── */
+.stApp{background:#e8e3d8!important;}
 .block-container{
-    padding-top:10px!important; padding-bottom:20px!important;
-    padding-left:6px!important; padding-right:6px!important;
-    max-width:500px!important; margin:0 auto!important;
+    padding:10px 6px 20px 6px!important;
+    max-width:500px!important;margin:0 auto!important;
 }
+html,body,[class*="css"]{font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;}
 
-/* ── Header row ── */
-.header-row{display:flex;align-items:baseline;gap:10px;margin-bottom:5px;padding-left:5px;}
+/* ── header row ── */
+.header-row{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;padding-left:4px;}
 .header-title{font-size:24px;font-weight:700;color:#333;margin:0;}
 .header-date{font-size:16px;font-weight:500;color:#666;}
 
-/* ── Calendar 7-col grid ── */
+/* ────────────────────────────────────────
+   CALENDAR  7-col grid
+   ──────────────────────────────────────── */
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)){
-    display:grid!important;grid-template-columns:repeat(7,1fr)!important;
-    gap:1px!important;width:100%!important;margin-bottom:5px!important;
+    display:grid!important;
+    grid-template-columns:repeat(7,1fr)!important;
+    gap:1px!important;width:100%!important;margin-bottom:4px!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button{
-    width:100%!important;min-width:0px!important;padding:0px!important;
+    width:100%!important;min-width:0!important;padding:0!important;
     aspect-ratio:1/1!important;height:auto!important;
     display:flex;align-items:center;justify-content:center;
     line-height:1!important;border-radius:4px!important;
-    border:1px solid #ccc!important;font-weight:600!important;font-size:14px!important;
+    border:1px solid #ccc!important;
+    font-weight:600!important;font-size:14px!important;
 }
-/* ── Cal nav 3-col ── */
+
+/* ── month nav: 3-col with EXACTLY 3 children ── */
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child){
-    margin-bottom:5px!important;gap:0px!important;
-    align-items:center!important;justify-content:center!important;
+    margin-bottom:4px!important;gap:0!important;
+    align-items:center!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child) button{
-    height:30px!important;border:none!important;background:transparent!important;
-    font-size:18px!important;color:#555!important;box-shadow:none!important;
-}
-@media(max-width:450px){
-    div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button{font-size:12px!important;}
-    .day-header{font-size:10px!important;}
+    height:30px!important;border:none!important;
+    background:transparent!important;font-size:18px!important;
+    color:#555!important;box-shadow:none!important;
 }
 
-/* ── Enter button ── */
-.enter-btn-wrap{margin-top:5px!important;margin-bottom:5px!important;}
-.enter-btn-wrap button{
-    background-color:white!important;color:#333!important;
+/* ── enter-grid button (full-width, after calendar) ── */
+.enter-btn button{
+    background:white!important;color:#333!important;
     border:1.5px solid #333!important;height:40px!important;
-    width:100%!important;font-size:15px!important;font-weight:700!important;
+    font-size:15px!important;font-weight:700!important;
+    margin-top:4px!important;
 }
 
-/* ── Announcement ── */
+/* ── announcement ── */
 .ann-box{background:white;border:2px solid #333;border-radius:6px;
-    margin-top:5px!important;margin-bottom:10px!important;}
-.ann-title{border-bottom:1.5px solid #333;padding:6px;font-weight:700;
-    text-align:center;font-size:15px;}
-.ann-body{padding:8px 12px;font-size:13px;line-height:1.5;color:#333;white-space:pre-wrap;}
+    margin-top:6px!important;margin-bottom:8px!important;}
+.ann-title{border-bottom:1.5px solid #333;padding:6px;
+    font-weight:700;text-align:center;font-size:15px;}
+.ann-body{padding:8px 12px;font-size:13px;line-height:1.5;
+    color:#333;white-space:pre-wrap;}
 
-/* ── Admin access ── */
-.admin-access-wrap{margin-top:5px!important;text-align:center;}
-.admin-access-wrap div[data-testid="stButton"]>button{
-    background:transparent!important;color:#aaa!important;
-    border:none!important;font-size:11px!important;padding:0!important;height:auto!important;
+/* ── admin-access (tiny link-style) ── */
+.admin-tiny button{
+    background:transparent!important;color:#bbb!important;
+    border:none!important;font-size:11px!important;
+    padding:0!important;height:auto!important;box-shadow:none!important;
 }
 
-/* ──────────────────────────────────────
-   Week Grid
-   ────────────────────────────────────── */
-.wk-wrap{overflow-x:auto;margin:0;}
+/* ────────────────────────────────────────
+   WEEK GRID  table
+   ──────────────────────────────────────── */
+.wk-wrap{overflow-x:auto;margin:0 0 2px 0;}
 .wk-tbl{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed;}
 .wk-tbl th{
     border:1px solid #333;padding:2px;text-align:center;background:#eee;
@@ -118,73 +121,82 @@ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child) button{
     line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sel-border{outline:2px solid #cc0000;outline-offset:-2px;}
 
-/* ── Week nav buttons ──
-   Key: use a 2-col wrapper that is NOT :has(3 children) or :has(7 children)
-   so it doesn't get hijacked by the calendar CSS rules above.          */
-.wk-nav-outer{
-    display:flex;gap:4px;
-    margin-top:3px;margin-bottom:0px;  /* no gap below */
+/* ────────────────────────────────────────
+   WEEK NAV  2-col buttons
+   Target: HorizontalBlock with EXACTLY 2 children
+   (won't clash with 7-col calendar grid)
+   ──────────────────────────────────────── */
+div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child){
+    gap:4px!important;margin-top:2px!important;margin-bottom:2px!important;
 }
-.wk-nav-outer>div{flex:1;}
-.wk-nav-outer div[data-testid="stButton"]>button{
-    background:white!important;color:#444!important;
+div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child) button{
+    background:white!important;color:#333!important;
     border:1.5px solid #bbb!important;border-radius:8px!important;
-    height:40px!important;font-size:12px!important;font-weight:600!important;width:100%!important;
+    height:38px!important;font-size:11px!important;font-weight:600!important;
+    width:100%!important;
+}
+div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child) button:disabled{
+    background:#eee!important;color:#bbb!important;border-color:#ddd!important;
 }
 
-/* ── Input section ──
-   Remove ALL margins/gaps so no white bar can appear.                  */
-.input-section{
-    background:white;border-radius:6px;padding:8px 10px 2px;
-    border:1px solid #ccc;
-    margin-top:2px;   /* tight gap after nav buttons */
-    margin-bottom:4px;
+/* ────────────────────────────────────────
+   INPUT SECTION
+   No div-wrapper! Style directly with CSS
+   on the stVerticalBlockBorderWrapper / stVerticalBlock
+   that follows the wk-wrap table.
+   We use a separator markdown .input-sep as the anchor.
+   ──────────────────────────────────────── */
+
+/* Compress ALL selectbox & text_input labels and heights globally */
+div[data-testid="stSelectbox"] label,
+div[data-testid="stTextInput"] label{
+    font-size:13px!important;
+    margin-bottom:0!important;
+    padding-bottom:0!important;
+    line-height:1.3!important;
+    min-height:0!important;
 }
-/* Compress every Streamlit form widget inside input-section */
-.input-section div[data-testid="stSelectbox"],
-.input-section div[data-testid="stTextInput"]{
-    margin-bottom:2px!important;margin-top:0!important;
-    padding-top:0!important;padding-bottom:0!important;
-}
-.input-section div[data-testid="stSelectbox"] label,
-.input-section div[data-testid="stTextInput"] label{
-    font-size:12px!important;margin-bottom:0!important;
-    line-height:1.2!important;padding-bottom:0!important;
-}
-.input-section div[data-testid="stSelectbox"] div[data-baseweb="select"],
-.input-section div[data-testid="stTextInput"] div[data-baseweb="input"]{
+div[data-testid="stSelectbox"] div[data-baseweb="select"],
+div[data-testid="stTextInput"] div[data-baseweb="input"]{
     min-height:32px!important;height:32px!important;font-size:14px!important;
 }
+div[data-testid="stSelectbox"],
+div[data-testid="stTextInput"]{
+    margin-bottom:3px!important;margin-top:0!important;
+}
 
-/* ── Save button (inside input-section) ── */
-.save-btn div[data-testid="stButton"]>button{
-    background:#4ECDC4!important;color:black!important;
-    border:none!important;height:40px!important;
-    font-size:15px!important;font-weight:700!important;
-    margin-top:4px!important;width:100%!important;
+/* ── Save button ── */
+.save-btn button{
+    background:#4ECDC4!important;color:#000!important;
+    border:none!important;border-radius:6px!important;
+    height:42px!important;font-size:15px!important;font-weight:700!important;
+    margin-top:2px!important;width:100%!important;
 }
 
 /* ── Return button ── */
-.return-btn div[data-testid="stButton"]>button{
+.return-btn button{
     background:#888!important;color:white!important;
     border:none!important;border-radius:6px!important;
     height:40px!important;font-size:15px!important;font-weight:600!important;
     margin-top:2px!important;width:100%!important;
 }
 
-/* ── Admin ── */
-button[kind="primary"]{background-color:#ef4444!important;color:white!important;border:none!important;}
-button:disabled{background-color:#e5e5e5!important;color:#bbb!important;opacity:0.6!important;}
+/* ── misc ── */
+button[kind="primary"]{background:#ef4444!important;color:white!important;border:none!important;}
+button:disabled{background:#e5e5e5!important;color:#bbb!important;opacity:0.6!important;}
 .day-header{text-align:center;font-size:12px;font-weight:700;color:#666;margin-bottom:2px;}
-.day-header.sunday{color:#cc0000;}
+.day-header.sun{color:#cc0000;}
+
+/* Admin */
 .admin-card{background:white;border-radius:14px;padding:28px 20px 20px;
     box-shadow:0 2px 14px rgba(0,0,0,.10);}
 .admin-title{color:#e53e3e;text-align:center;font-size:26px;font-weight:700;margin-bottom:24px;}
-.admin-big-btn div[data-testid="stButton"]>button{
+.admin-big-btn button{
     background:#4ECDC4!important;color:#111!important;border:none!important;
-    border-radius:10px!important;height:64px!important;font-size:18px!important;font-weight:600!important;
+    border-radius:10px!important;height:64px!important;
+    font-size:18px!important;font-weight:600!important;margin-bottom:2px!important;
 }
-.admin-back-btn div[data-testid="stButton"]>button{
+.admin-back-btn button{
     background:#c8c8c8!important;color:#444!important;border:none!important;
     border-radius:10px!important;height:48px!important;font-size:15px!important;
 }
@@ -228,7 +240,7 @@ def save_data(key, value):
     except Exception as e: st.error(f"❌ 存檔失敗: {e}")
 
 # ──────────────────────────────────────────
-#  State init
+#  State
 # ──────────────────────────────────────────
 def init_state():
     if "app_ready" in st.session_state: return
@@ -264,49 +276,47 @@ def nav(page):
     st.session_state.page = page
     st.rerun()
 
-def get_week_start(d: date) -> date:
+def week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 def get_weeks(year, month):
     first = date(year, month, 1)
     last  = date(year, month, calendar.monthrange(year, month)[1])
-    ws = get_week_start(first)
+    ws = week_start(first)
     weeks = []
     while ws <= last:
         weeks.append((ws, [ws+timedelta(days=i) for i in range(7)]))
         ws += timedelta(weeks=1)
     return weeks
 
-def week_range_label(ws: date) -> str:
+def week_label(ws: date) -> str:
     we = ws + timedelta(days=6)
     return f"{ws.month}/{ws.day}({WD[ws.weekday()]})～{we.month}/{we.day}({WD[we.weekday()]})"
 
-def open_month_bounds():
-    """Return (min_date, max_date) based on open months."""
+def open_bounds():
+    """First day of earliest open month → last day of latest open month."""
     months = sorted(st.session_state.open_months_list)
     if not months:
-        return date.today(), date.today()
-    y0, m0 = months[0]
-    y1, m1 = months[-1]
-    min_d = date(y0, m0, 1)
-    max_d = date(y1, m1, calendar.monthrange(y1, m1)[1])
-    return min_d, max_d
+        t = date.today()
+        return t, t
+    y0,m0 = months[0];  y1,m1 = months[-1]
+    return date(y0,m0,1), date(y1,m1,calendar.monthrange(y1,m1)[1])
 
 # ──────────────────────────────────────────
 #  Page: Calendar
 # ──────────────────────────────────────────
 def page_calendar():
     months = sorted(st.session_state.open_months_list)
-
     if months:
-        idx   = min(st.session_state.month_idx, len(months)-1)
+        idx = min(st.session_state.month_idx, len(months)-1)
         year, month = months[idx]
         date_text = f"{MON_EN[month]} {year}"
     else:
-        date_text = ""
+        idx, year, month, date_text = 0, date.today().year, date.today().month, ""
 
-    st.markdown(f'<div class="header-row"><div class="header-title">志工排班表</div>'
-                f'<div class="header-date">{date_text}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="header-row">'
+                f'<span class="header-title">志工排班表</span>'
+                f'<span class="header-date">{date_text}</span></div>', unsafe_allow_html=True)
 
     if not months:
         st.warning("⚠️ 暫無開放月份")
@@ -315,45 +325,46 @@ def page_calendar():
     weeks     = get_weeks(year, month)
     sel_start = st.session_state.sel_week_start
 
-    # Month nav
-    c1, c2, c3 = st.columns([1,5,1])
+    # Month nav (3 columns — caught by :has(nth-child(3):last-child) CSS)
+    c1,c2,c3 = st.columns([1,5,1])
     with c1:
         if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
             st.session_state.month_idx = idx-1
             st.session_state.sel_week_start = None
             st.rerun()
+    c2.markdown(f"<div style='text-align:center;font-weight:700;font-size:16px;'>"
+                f"{MON_EN[month]} {year}</div>", unsafe_allow_html=True)
     with c3:
         if st.button("▶", key="next_m", disabled=(idx>=len(months)-1), use_container_width=True):
             st.session_state.month_idx = idx+1
             st.session_state.sel_week_start = None
             st.rerun()
 
-    # Weekday header
+    # Weekday labels (7 cols — caught by :has(nth-child(7)) CSS, but no button so fine)
     hdr = st.columns(7)
     for i,lbl in enumerate(["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]):
-        cls = "day-header sunday" if i==6 else "day-header"
+        cls = "day-header sun" if i==6 else "day-header"
         hdr[i].markdown(f'<div class="{cls}">{lbl}</div>', unsafe_allow_html=True)
 
-    # Calendar grid
+    # Calendar grid weeks
     for ws, days in weeks:
         is_sel   = (sel_start == ws)
         btn_type = "primary" if is_sel else "secondary"
         dcols    = st.columns(7)
-        for i, d in enumerate(days):
+        for i,d in enumerate(days):
             with dcols[i]:
-                if d.month != month: st.empty()
+                if d.month != month:
+                    st.empty()
                 else:
-                    disabled = not is_open(d)
                     if st.button(str(d.day), key=f"btn_{d}", type=btn_type,
-                                 disabled=disabled, use_container_width=True):
+                                 disabled=not is_open(d), use_container_width=True):
                         st.session_state.sel_week_start = ws
                         st.rerun()
 
-    # Enter grid button
+    # Enter button
     if sel_start:
-        lbl = f"進入排班 ({week_range_label(sel_start)})"
-        st.markdown('<div class="enter-btn-wrap">', unsafe_allow_html=True)
-        if st.button(lbl, key="enter_grid", use_container_width=True):
+        st.markdown('<div class="enter-btn">', unsafe_allow_html=True)
+        if st.button(f"進入排班　{week_label(sel_start)}", key="enter_grid", use_container_width=True):
             st.session_state.page     = "week_grid"
             st.session_state.sel_cell = None
             st.rerun()
@@ -364,13 +375,12 @@ def page_calendar():
                 f'<div class="ann-body">{ann}</div></div>', unsafe_allow_html=True)
     _admin_btn()
 
-
 def _admin_btn():
-    st.markdown('<div class="admin-access-wrap">', unsafe_allow_html=True)
+    # Single standalone button — not inside any div pair
+    st.markdown('<div class="admin-tiny">', unsafe_allow_html=True)
     if st.button("管理員登入", key="admin_access"):
         nav("admin_login")
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ──────────────────────────────────────────
 #  Page: Week Grid
@@ -379,129 +389,108 @@ def page_week_grid():
     ws = st.session_state.sel_week_start
     if ws is None: nav("calendar"); return
 
-    week_days  = [ws + timedelta(days=i) for i in range(7)]
+    week_days  = [ws+timedelta(days=i) for i in range(7)]
     months     = sorted(st.session_state.open_months_list)
-    m_idx      = min(st.session_state.month_idx, len(months)-1)
-    cy, cm     = months[m_idx]
+    cy,cm      = months[min(st.session_state.month_idx,len(months)-1)]
     zone_names = st.session_state.zone_names
     sel_cell   = st.session_state.get("sel_cell")
 
-    # Title
-    st.markdown(f'<div class="header-row"><div class="header-title">志工排班表</div>'
-                f'<div class="header-date">{MON_EN[cm]} {cy}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="header-row">'
+                f'<span class="header-title">志工排班表</span>'
+                f'<span class="header-date">{MON_EN[cm]} {cy}</span></div>', unsafe_allow_html=True)
 
-    # ── Grid HTML ──
+    # ── Grid ──
     html = '<div class="wk-wrap"><table class="wk-tbl"><tr>'
     html += '<th class="wk-date-cell">日期</th><th class="wk-shift-cell"></th>'
     for z in zone_names: html += f'<th>{z}</th>'
     html += '</tr>'
-
     for day in week_days:
         d_str  = day.strftime('%Y-%m-%d')
         closed = not is_open(day)
         lbl    = f"{day.month}/{day.day}<br>({WD[day.weekday()]})"
-
         if closed:
-            html += (f'<tr><td class="wk-date-cell" style="height:28px;">{lbl}</td>'
-                     f'<td class="wk-shift-cell" style="height:28px;"></td>'
+            html += (f'<tr><td class="wk-date-cell" style="height:26px;">{lbl}</td>'
+                     f'<td class="wk-shift-cell"></td>'
                      f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell"'
-                     f' style="height:28px;">休 館</td></tr>')
+                     f' style="height:26px;">休館</td></tr>')
         else:
-            # 上午 row
             html += f'<tr><td class="wk-date-cell" rowspan="2">{lbl}</td><td class="wk-shift-cell">上午</td>'
             for z_id in INTERNAL_ZONES:
                 k  = f"{d_str}_上午_{z_id}_1"
                 v  = st.session_state.bookings.get(k,"").strip()
                 cls = "wk-filled-cell" if v else "wk-empty-cell"
                 sc  = " sel-border" if k==sel_cell else ""
-                ct  = f"<span class='vol-name'>{v}</span>" if v else ""
-                html += f'<td class="{cls}{sc}">{ct}</td>'
-            html += '</tr>'
-            # 下午 row
-            html += '<tr><td class="wk-shift-cell">下午</td>'
+                html += f'<td class="{cls}{sc}">{"<span class=vol-name>"+v+"</span>" if v else ""}</td>'
+            html += '</tr><tr><td class="wk-shift-cell">下午</td>'
             for z_id in INTERNAL_ZONES:
                 k  = f"{d_str}_下午_{z_id}_1"
                 v  = st.session_state.bookings.get(k,"").strip()
                 cls = "wk-filled-cell" if v else "wk-empty-cell"
                 sc  = " sel-border" if k==sel_cell else ""
-                ct  = f"<span class='vol-name'>{v}</span>" if v else ""
-                html += f'<td class="{cls}{sc}">{ct}</td>'
+                html += f'<td class="{cls}{sc}">{"<span class=vol-name>"+v+"</span>" if v else ""}</td>'
             html += '</tr>'
-
     html += '</table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # ── Week navigation (bounded by open months) ──
-    min_d, max_d = open_month_bounds()
+    # ── Week nav (exactly 2 columns → caught by :has(nth-child(2):last-child) CSS) ──
+    # Bounds: only allow navigation within open months
+    min_d, max_d = open_bounds()
     prev_ws   = ws - timedelta(weeks=1)
     next_ws   = ws + timedelta(weeks=1)
-    prev_ok   = (prev_ws >= get_week_start(min_d))
-    next_ok   = (next_ws <= get_week_start(max_d) + timedelta(weeks=1))
+    # prev ok: the week ending (prev_ws+6) must reach into the open range
+    prev_ok   = (prev_ws + timedelta(days=6)) >= min_d
+    # next ok: the week starting (next_ws) must still be within the open range
+    next_ok   = next_ws <= max_d
 
-    # Render nav buttons in a flex wrapper (avoid triggering 3-col or 7-col CSS)
-    st.markdown('<div class="wk-nav-outer">', unsafe_allow_html=True)
+    # ⚠️ PLAIN st.columns(2) — NO st.markdown wrapper before/after
     nv1, nv2 = st.columns(2)
     with nv1:
-        prev_label = f"◀ {week_range_label(prev_ws)}" if prev_ok else "（已是第一週）"
-        if st.button(prev_label, key="prev_w", disabled=not prev_ok, use_container_width=True):
+        lbl = f"◀ {week_label(prev_ws)}" if prev_ok else "◀ （已是最早）"
+        if st.button(lbl, key="prev_w", disabled=not prev_ok, use_container_width=True):
             st.session_state.sel_week_start = prev_ws
             st.session_state.sel_cell = None
             st.rerun()
     with nv2:
-        next_label = f"{week_range_label(next_ws)} ▶" if next_ok else "（已是最後一週）"
-        if st.button(next_label, key="next_w", disabled=not next_ok, use_container_width=True):
+        lbl = f"{week_label(next_ws)} ▶" if next_ok else "（已是最後） ▶"
+        if st.button(lbl, key="next_w", disabled=not next_ok, use_container_width=True):
             st.session_state.sel_week_start = next_ws
             st.session_state.sel_cell = None
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Input section ──
-    # ⚠️ Key fix: use st.container() + CSS class instead of markdown <div> wrappers
-    # to prevent Streamlit rendering empty block elements from </div> tags.
+    # ⚠️ PLAIN st.container() — NO st.markdown div wrappers at all
     open_days = [d for d in week_days if is_open(d)]
-
     if open_days:
-        with st.container():
-            # Apply class via markdown ONLY for the opening tag; closing handled by container
-            st.markdown('<div class="input-section">', unsafe_allow_html=True)
+        st.markdown("**📝 登記排班**")
 
-            st.markdown("**📝 登記排班**")
+        d_opts   = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days]
+        d_idx    = st.selectbox("日期", range(len(open_days)),
+                                format_func=lambda i: d_opts[i], key="pk_d")
+        sel_date = open_days[d_idx]
 
-            d_opts   = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days]
-            d_idx    = st.selectbox("日期", range(len(open_days)),
-                                    format_func=lambda i: d_opts[i], key="pk_d")
-            sel_date = open_days[d_idx]
+        shifts = ["上午","下午"]
+        s_idx  = st.selectbox("時段", range(2),
+                              format_func=lambda i: shifts[i], key="pk_s")
+        sel_sf = shifts[s_idx]
 
-            shifts   = ["上午","下午"]
-            s_idx    = st.selectbox("時段", range(len(shifts)),
-                                    format_func=lambda i: shifts[i], key="pk_s")
-            sel_sf   = shifts[s_idx]
+        z_idx  = st.selectbox("區域", range(len(zone_names)),
+                              format_func=lambda i: zone_names[i], key="pk_z")
+        sel_zid = INTERNAL_ZONES[z_idx]
 
-            z_idx    = st.selectbox("區域", range(len(zone_names)),
-                                    format_func=lambda i: zone_names[i], key="pk_z")
-            sel_zid  = INTERNAL_ZONES[z_idx]
+        key = f"{sel_date.strftime('%Y-%m-%d')}_{sel_sf}_{sel_zid}_1"
+        val = st.session_state.bookings.get(key, "")
 
-            key = f"{sel_date.strftime('%Y-%m-%d')}_{sel_sf}_{sel_zid}_1"
-            val = st.session_state.bookings.get(key, "")
+        new_n = st.text_input("輸入或刪除名字", val, key="in_n",
+                              placeholder="輸入名字（清空=取消排班）")
 
-            # Text input: label IS the visible label (no extra markdown div needed)
-            new_n = st.text_input(
-                "輸入或刪除名字",
-                val,
-                key="in_n",
-                placeholder="輸入名字（清空=取消排班）"
-            )
-
-            st.markdown('<div class="save-btn">', unsafe_allow_html=True)
-            save_clicked = st.button("儲存", key="save_entry", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('</div>', unsafe_allow_html=True)   # close .input-section
+        # Save button — CSS class applied via single non-closing markdown
+        st.markdown('<style>.save-row button{background:#4ECDC4!important;color:#000!important;border:none!important;border-radius:6px!important;height:42px!important;font-size:15px!important;font-weight:700!important;width:100%!important;}</style>', unsafe_allow_html=True)
+        save_clicked = st.button("儲存", key="save_entry", use_container_width=True)
 
         if save_clicked:
             fresh = load_data()
-            cloud = fresh.get(key, "")
-            old   = st.session_state.bookings.get(key, "")
+            cloud = fresh.get(key,"")
+            old   = st.session_state.bookings.get(key,"")
             if cloud.strip() and cloud != old:
                 st.error(f"⚠️ 此格已被「{cloud}」搶先登記！")
                 st.session_state.bookings[key] = cloud
@@ -509,20 +498,17 @@ def page_week_grid():
                 st.session_state.bookings[key] = new_n.strip()
                 save_data(key, new_n.strip())
                 st.session_state.sel_cell = key
-                msg = f"✅ 已儲存！{d_opts[d_idx]} {sel_sf} {zone_names[z_idx]}" if new_n.strip() else "✅ 已取消排班。"
-                st.success(msg)
+                st.success(f"✅ 已儲存！" if new_n.strip() else "✅ 已取消排班。")
             st.rerun()
     else:
         st.info("本週全部休館")
 
-    # Return button
-    st.markdown('<div class="return-btn">', unsafe_allow_html=True)
+    # Return button — also no wrapper
+    st.markdown('<style>.return-row button{background:#888!important;color:white!important;border:none!important;border-radius:6px!important;height:40px!important;font-size:15px!important;font-weight:600!important;width:100%!important;margin-top:2px!important;}</style>', unsafe_allow_html=True)
     if st.button("返回月曆", key="exit_g", use_container_width=True):
         st.session_state.page     = "calendar"
         st.session_state.sel_cell = None
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ──────────────────────────────────────────
 #  Admin pages
@@ -538,7 +524,6 @@ def page_admin_login():
     with c2:
         if st.button("返回", key="cancel_login", use_container_width=True): nav("calendar")
 
-
 def page_admin():
     st.markdown('<div class="admin-card"><div class="admin-title">管理員後台</div>',
                 unsafe_allow_html=True)
@@ -546,12 +531,12 @@ def page_admin():
                         ("公告修改","admin_ann"),("區域名稱設定","admin_zones")]:
         st.markdown('<div class="admin-big-btn">', unsafe_allow_html=True)
         if st.button(label, key=f"ab_{dest}", use_container_width=True): nav(dest)
-        st.markdown('</div><div style="height:5px"></div>', unsafe_allow_html=True)
-    st.markdown('</div><div style="height:20px"></div>'
-                '<div class="admin-back-btn">', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.write("")
+    st.markdown('<div class="admin-back-btn">', unsafe_allow_html=True)
     if st.button("退回", key="admin_back", use_container_width=True): nav("calendar")
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 def page_admin_months():
     st.markdown("## 管理開放月份")
@@ -576,7 +561,6 @@ def page_admin_months():
         save_data("SYS_OPEN_MONTHS",json.dumps(st.session_state.open_months_list)); st.rerun()
     if st.button("← 返回",key="bk_m"): nav("admin")
 
-
 def page_admin_holidays():
     st.markdown("## 休館設定")
     st.caption("預設週一休館，可額外設定特別休館/開館日。")
@@ -595,11 +579,10 @@ def page_admin_holidays():
         save_data("SYS_OPEN_DAYS",  json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
         st.success("✅ 已設為開館"); st.rerun()
     if st.session_state.closed_days:
-        st.markdown("**特別休館日：** "+"、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.closed_days)]))
+        st.markdown("**特別休館日：**"+"、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.closed_days)]))
     if st.session_state.open_days:
-        st.markdown("**特別開館日：** "+"、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.open_days)]))
+        st.markdown("**特別開館日：**"+"、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.open_days)]))
     if st.button("← 返回",key="bk_h"): nav("admin")
-
 
 def page_admin_ann():
     st.markdown("## 公告修改")
@@ -610,21 +593,16 @@ def page_admin_ann():
         st.success("已更新！"); st.rerun()
     if st.button("← 返回",key="bk_ann"): nav("admin")
 
-
 def page_admin_zones():
     st.markdown("## 區域名稱設定")
-    st.caption("修改表格欄位的標題名稱。")
-    current_names = st.session_state.zone_names
     new_names = []
     for i in range(6):
-        val = st.text_input(f"區域 {i+1}", value=current_names[i], key=f"zn_{i}")
-        new_names.append(val)
-    if st.button("✅ 儲存區域名稱", type="primary"):
+        new_names.append(st.text_input(f"區域 {i+1}", value=st.session_state.zone_names[i], key=f"zn_{i}"))
+    if st.button("✅ 儲存",type="primary"):
         st.session_state.zone_names = new_names
         save_data("SYS_ZONE_NAMES",json.dumps(new_names))
         st.success("已更新！"); st.rerun()
     if st.button("← 返回",key="bk_zn"): nav("admin")
-
 
 # ──────────────────────────────────────────
 #  Router
