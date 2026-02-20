@@ -38,7 +38,7 @@ st.markdown("""
 /* 2. 背景與主容器 */
 .stApp { background-color: #e8e3d8 !important; }
 .block-container {
-    padding-top: 5px !important;
+    padding-top: 10px !important;
     padding-bottom: 20px !important;
     padding-left: 2px !important;
     padding-right: 2px !important;
@@ -47,13 +47,22 @@ st.markdown("""
 }
 
 /* ==============================================
-   🎯 日曆頁面 (Month View)
+   🎯 日曆頁面樣式
    ============================================== */
-h2 { margin-bottom: 0px !important; padding-bottom: 0px !important; font-size: 24px !important; }
+/* 標題與月份同一行 */
+.header-row {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; padding-left: 5px;
+}
+.header-title { font-size: 24px; font-weight: 700; color: #333; margin: 0; }
+.header-date { font-size: 16px; font-weight: 500; color: #666; }
 
+/* 日曆網格 */
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
-    display: grid !important; grid-template-columns: repeat(7, 1fr) !important;
-    gap: 1px !important; width: 100% !important; margin-bottom: 2px !important;
+    display: grid !important;
+    grid-template-columns: repeat(7, 1fr) !important;
+    gap: 1px !important;
+    width: 100% !important;
+    margin-bottom: 5px !important;
 }
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
     width: 100% !important; min-width: 0px !important; padding: 0px !important;
@@ -79,11 +88,11 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
 }
 
 /* ==============================================
-   🎯 排班表頁面 (Week Grid)
+   🎯 排班表頁面樣式 (Week Grid)
    ============================================== */
 
 /* 表格樣式 */
-.wk-wrap { overflow-x: auto; margin: 0 0 0 0; border-top: 2px solid #333; }
+.wk-wrap { overflow-x: auto; margin: 0 0 2px 0; border-top: 2px solid #333; }
 .wk-tbl { border-collapse: collapse; width: 100%; font-size: 12px; table-layout: fixed; }
 
 .wk-tbl th { 
@@ -95,34 +104,58 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
 }
 
 .wk-date-cell { background: #f5f5f5; font-weight: 700; font-size: 11px; width: 35px; }
-.wk-shift-cell { background: #e8e8e8; font-size: 10px; width: 25px; font-weight: 600; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px;} 
+.wk-shift-cell { background: #e8e8e8; font-size: 10px; width: 20px; font-weight: 600; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 1px; padding: 0 2px;} 
 .wk-filled-cell { background: #FFD700; }
 .wk-empty-cell { background: #FFF; }
 .wk-closed-cell { 
     background: #e0e0e0; color: #999; font-size: 10px; letter-spacing: 1px;
     background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, #ccc 5px, #ccc 6px);
 }
-.vol-name { font-size: 13px; font-weight: 600; color: #000; display: block; line-height: 1.1; }
+.vol-name { font-size: 13px; font-weight: 600; color: #000; display: block; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sel-border { outline: 2px solid #cc0000; outline-offset: -2px; }
 
-/* 輸入區塊壓縮 */
-div[data-testid="stSelectbox"] label, div[data-testid="stTextInput"] label {
-    font-size: 13px !important; margin-bottom: 0px !important; min-height: 0px !important;
+/* ⚠️ 間距極致壓縮區 (Spacing Compression) */
+
+/* 上一週/下一週按鈕容器 */
+.nav-week-container {
+    margin-top: 0px !important;
+    margin-bottom: 2px !important;
 }
-div[data-testid="stSelectbox"] div[data-baseweb="select"], div[data-testid="stTextInput"] div[data-baseweb="input"] {
-    min-height: 35px !important; height: 35px !important;
-}
-div[data-testid="stSelectbox"], div[data-testid="stTextInput"] {
-    margin-bottom: 5px !important;
+.nav-week-btn button { 
+    background: white !important; color: #555 !important; 
+    border: 1px solid #ccc !important; border-radius: 6px !important; 
+    height: 36px !important; font-size: 14px !important; font-weight: 600 !important;
+    margin-top: 0px !important;
 }
 
-/* 儲存/返回/導航按鈕 */
-.save-btn-wrap button, .bot-exit-wrap button, .nav-week-btn button {
-    height: 40px !important; font-size: 15px !important; font-weight: 700 !important; margin-top: 5px !important;
+/* 輸入區塊 (Input Area) */
+.input-area {
+    background-color: white; border-radius: 6px; padding: 8px;
+    border: 1px solid #ccc; margin-top: 2px; margin-bottom: 5px;
 }
-.save-btn-wrap button { background-color: #4ECDC4 !important; color: black !important; border: none !important; }
-.bot-exit-wrap button { background: #888 !important; color: white !important; border: none !important; border-radius: 8px !important; }
-.nav-week-btn button { background: white !important; color: #555 !important; border: 1px solid #ccc !important; border-radius: 8px !important; }
+
+/* 輸入框標題與間距 */
+div[data-testid="stSelectbox"] label, div[data-testid="stTextInput"] label {
+    font-size: 12px !important; margin-bottom: 0px !important; min-height: 0px !important;
+}
+div[data-testid="stSelectbox"] div[data-baseweb="select"], div[data-testid="stTextInput"] div[data-baseweb="input"] {
+    min-height: 32px !important; height: 32px !important; font-size: 14px !important;
+}
+div[data-testid="stSelectbox"], div[data-testid="stTextInput"] {
+    margin-bottom: 3px !important;
+}
+
+/* 儲存/返回按鈕 */
+.save-btn-wrap button { 
+    background-color: #4ECDC4 !important; color: black !important; 
+    border: none !important; height: 38px !important; 
+    font-size: 15px !important; font-weight: 700 !important; margin-top: 5px !important; 
+}
+.bot-exit-wrap button { 
+    background: #888 !important; color: white !important; 
+    border: none !important; border-radius: 6px !important; 
+    height: 40px !important; font-size: 15px !important; font-weight: 600 !important; margin-top: 0px !important;
+}
 
 /* 其他通用 UI */
 .day-header { text-align: center; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 2px; }
@@ -130,18 +163,13 @@ div[data-testid="stSelectbox"], div[data-testid="stTextInput"] {
 .nav-label { font-size: 18px; font-weight: 700; text-align: center; color: #333; white-space: nowrap; line-height: 1; margin: 0 5px; }
 button:disabled { background-color: #e5e5e5 !important; color: #bbb !important; cursor: not-allowed !important; opacity: 0.6 !important; border: 1px solid #ddd !important; }
 button[kind="primary"] { background-color: #ef4444 !important; color: white !important; border: none !important; }
-.enter-btn-wrap { margin-top: 10px !important; margin-bottom: 10px !important; }
+.enter-btn-wrap { margin-top: 5px !important; margin-bottom: 5px !important; }
 .enter-btn-wrap button { background-color: white !important; color: #333 !important; border: 1.5px solid #333 !important; height: 40px !important; width: 100% !important; font-size: 15px !important; font-weight: 700 !important; }
 .ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin-top: 5px !important; margin-bottom: 10px !important; }
 .ann-title { border-bottom: 1.5px solid #333; padding: 6px; font-weight: 700; text-align: center; font-size: 15px; }
 .ann-body { padding: 8px 12px; font-size: 13px; line-height: 1.5; color: #333; }
 .admin-access-wrap { margin-top: 5px !important; text-align: center; }
 .admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 11px !important; padding: 0 !important; height: auto !important; }
-
-.input-area {
-    background-color: white; border-radius: 0 0 8px 8px; padding: 10px;
-    border-left: 1px solid #ccc; border-right: 1px solid #ccc; border-bottom: 1px solid #ccc; margin-bottom: 10px;
-}
 
 </style>
 """, unsafe_allow_html=True)
@@ -203,6 +231,7 @@ def init_state():
     try:
         st.session_state.open_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_OPEN_DAYS","[]"))]
     except: st.session_state.open_days = []
+    
     try:
         st.session_state.zone_names = json.loads(raw.get("SYS_ZONE_NAMES", json.dumps(DEFAULT_ZONE_NAMES)))
     except: 
@@ -213,6 +242,7 @@ def init_state():
     st.session_state.month_idx      = 0
     st.session_state.sel_week_start = None
     st.session_state.sel_cell       = None 
+    st.session_state.grid_shift     = "上午"
     st.session_state.app_ready      = True
 
 init_state()
@@ -249,36 +279,48 @@ def get_weeks(year, month):
 def page_calendar():
     months = sorted(st.session_state.open_months_list)
     
-    st.markdown("<h2>志工排班表</h2>", unsafe_allow_html=True)
+    # (1) 標題與月份同一行
+    if months:
+        idx = min(st.session_state.month_idx, len(months)-1)
+        year, month = months[idx]
+        header_text = f"志工排班表"
+        date_text = f"{MON_EN[month]} {year}"
+    else:
+        header_text = "志工排班表"
+        date_text = ""
+
+    st.markdown(f"""
+    <div class="header-row">
+        <div class="header-title">{header_text}</div>
+        <div class="header-date">{date_text}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if not months:
         st.warning("⚠️ 暫無開放月份")
         _admin_btn(); return
 
-    idx = min(st.session_state.month_idx, len(months)-1)
-    year, month = months[idx]
     weeks = get_weeks(year, month)
     sel_start = st.session_state.sel_week_start
 
+    # Month Nav (箭頭)
     c_nav = st.container()
-    c1, c2, c3 = c_nav.columns([1, 3, 1]) 
+    c1, c2, c3 = c_nav.columns([1, 5, 1]) 
     with c1:
-        st.markdown('<div style="text-align: right;">', unsafe_allow_html=True)
         if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
             st.session_state.month_idx = idx-1
             st.session_state.sel_week_start = None
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown(f'<div class="nav-label">{MON_EN[month]} {year}</div>', unsafe_allow_html=True)
+    # 中間空白，因為月份已經移到標題旁了
     with c3:
-        st.markdown('<div style="text-align: left;">', unsafe_allow_html=True)
         if st.button("▶", key="next_m", disabled=(idx>=len(months)-1), use_container_width=True):
             st.session_state.month_idx = idx+1
             st.session_state.sel_week_start = None
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
+    st.write("") 
+
+    # Calendar Grid
     with st.container():
         header_cols = st.columns(7)
         days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -333,17 +375,21 @@ def page_week_grid():
     week_days = [ws + timedelta(days=i) for i in range(7)]
     months = sorted(st.session_state.open_months_list)
     
-    # 確保不會 out of range (雖然前面有卡控)
     m_idx = min(st.session_state.month_idx, len(months)-1)
     cy, cm = months[m_idx]
     
     zone_names = st.session_state.zone_names
     sel_cell = st.session_state.get("sel_cell")
 
-    st.markdown(f"<div class='wk-title'>志工排班表</div>", unsafe_allow_html=True)
-    st.caption(f"{MON_EN[cm]} {cy}")
+    # (1) 標題與月份併行
+    st.markdown(f"""
+    <div class="header-row">
+        <div class="header-title">志工排班表</div>
+        <div class="header-date">{MON_EN[cm]} {cy}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # (2) 表格
+    # Grid HTML
     html  = '<div class="wk-wrap"><table class="wk-tbl">'
     
     # 表頭
@@ -358,13 +404,12 @@ def page_week_grid():
         lbl    = f"{day.month}/{day.day}<br>({WD[day.weekday()]})"
         
         if closed:
-            # 休館日：高度 70px (35px * 2)
-            html += f'<tr><td class="wk-date-cell" style="height:70px;">{lbl}</td>'
-            html += f'<td class="wk-shift-cell"></td>' # 佔位
-            html += f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell">休 館</td>'
+            # (2) 休館日高度縮小為 30px
+            html += f'<tr><td class="wk-date-cell" style="height:30px;">{lbl}</td>'
+            html += f'<td class="wk-shift-cell" style="height:30px;"></td>'
+            html += f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell" style="height:30px;">休 館</td>'
             html += '</tr>'
         else:
-            # (1) 同時顯示上下午：兩列
             # Row 1: 上午
             html += f'<tr><td class="wk-date-cell" rowspan="2">{lbl}</td>'
             html += f'<td class="wk-shift-cell">上午</td>'
@@ -392,7 +437,8 @@ def page_week_grid():
     html += '</table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # (3) 週間導航按鈕 (移到日曆下方)
+    # (3) 週間導航按鈕 (緊貼表格下方)
+    st.markdown('<div class="nav-week-container">', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         st.markdown('<div class="nav-week-btn">', unsafe_allow_html=True)
@@ -406,8 +452,9 @@ def page_week_grid():
             st.session_state.sel_week_start += timedelta(weeks=1)
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # 輸入區 (依順序：日期 -> 時段 -> 區域 -> 姓名)
+    # 輸入區 (緊貼導航按鈕)
     open_days = [d for d in week_days if is_open(d)]
     
     if open_days:
@@ -419,7 +466,7 @@ def page_week_grid():
         d_idx = st.selectbox("日期", range(len(open_days)), format_func=lambda i: d_opts[i], key="pk_d")
         sel_date = open_days[d_idx]
         
-        # 2. 時段 (新加入)
+        # 2. 時段
         shifts = ["上午", "下午"]
         s_idx = st.selectbox("時段", range(len(shifts)), format_func=lambda i: shifts[i], key="pk_s")
         sel_shift = shifts[s_idx]
@@ -428,12 +475,12 @@ def page_week_grid():
         z_idx = st.selectbox("區域", range(len(zone_names)), format_func=lambda i: zone_names[i], key="pk_z")
         sel_zone_id = INTERNAL_ZONES[z_idx]
         
-        # 讀取資料 key
+        # 讀取
         key = f"{sel_date.strftime('%Y-%m-%d')}_{sel_shift}_{sel_zone_id}_1"
         val = st.session_state.bookings.get(key, "")
 
         # 4. 姓名輸入
-        st.markdown("<div style='margin-top:2px;'><b>輸入或刪除名字</b></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:2px;font-size:13px;'><b>輸入或刪除名字</b></div>", unsafe_allow_html=True)
         new_n = st.text_input("志工姓名", val, key="in_n", placeholder="輸入名字", label_visibility="collapsed")
 
         # 儲存
@@ -441,7 +488,7 @@ def page_week_grid():
         if st.button("儲存", key="save_entry", use_container_width=True):
             st.session_state.bookings[key] = new_n
             save_data(key, new_n)
-            st.session_state.sel_cell = key # 讓紅框定位
+            st.session_state.sel_cell = key
             st.success("已儲存！")
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
