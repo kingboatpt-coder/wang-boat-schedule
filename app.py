@@ -458,15 +458,25 @@ def page_week_grid():
         z_idx  = st.selectbox("區域", range(len(zone_names)),
                              format_func=lambda i: zone_names[i], key="pk_z")
         sel_zid = INTERNAL_ZONES[z_idx]
+        
+        # ──【修改處】自動帶入既有名稱邏輯 ──
         key = f"{sel_date.strftime('%Y-%m-%d')}_{sel_sf}_{sel_zid}_1"
-        val = st.session_state.bookings.get(key, "")
-        new_n = st.text_input("輸入或刪除名字", val, key="in_n", placeholder="輸入名字（清空=取消排班）")
+        # 取得資料庫中的值，若無則為空字串
+        saved_val = st.session_state.bookings.get(key, "").strip()
+
+        # 這裡設定 value=saved_val，並使用動態 key，讓切換日期/區域時輸入框能自動更新
+        new_n = st.text_input("輸入或刪除名字", value=saved_val, key=f"txt_{key}", 
+                              placeholder="輸入名字（清空=取消排班）")
+
         save_clicked = st.button("儲存", key="save_entry", use_container_width=True)
         if save_clicked:
             fresh = load_data()
             cloud = fresh.get(key,"")
             old   = st.session_state.bookings.get(key,"")
-            if cloud.strip() and cloud != old:
+            
+            # 檢查是否有衝突 (雲端有值，且跟本地不同，且本地原本是空的或不同)
+            # 簡化邏輯：如果雲端已經有人，且不是自己剛填的名字，提示已被搶
+            if cloud.strip() and cloud != old and cloud != new_n.strip():
                 st.error(f"⚠️ 此格已被「{cloud}」搶先登記！")
                 st.session_state.bookings[key] = cloud
             else:
