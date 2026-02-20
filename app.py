@@ -17,140 +17,137 @@ except ImportError:
 st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide")
 
 # ─────────────────────────────────────────
-#  GLOBAL CSS (CSS Grid 終極修正版)
+#  GLOBAL CSS (智能判斷修正版)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-/* 1. 隱藏干擾元件 */
+/* 1. 基礎清理 */
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stToolbar"], [data-testid="stDecoration"], section[data-testid="stSidebar"] { display: none !important; }
 
-/* 2. 背景與主容器設定 */
+/* 2. 背景與主容器 */
 .stApp { background-color: #e8e3d8 !important; }
-
-/* ⭐⭐⭐ 修正 1：鎖定容器最大寬度，電腦版不再變巨型 ⭐⭐⭐ */
 .block-container {
     padding-top: 10px !important;
-    padding-bottom: 20px !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
-    
-    /* 這裡鎖死寬度，電腦上看也會是漂亮的手機比例 */
-    max-width: 500px !important; 
+    padding-bottom: 30px !important;
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+    max-width: 500px !important; /* 鎖定最大寬度，電腦版置中 */
     margin: 0 auto !important;
 }
 
-/* ⭐⭐⭐ 修正 2：使用 CSS Grid 強制 7 等分，絕對不換行 ⭐⭐⭐ */
+/* ==============================================
+   🎯 核心修正：區分「導航列」與「日曆網格」
+   使用 :has() 選擇器，只針對有 7 個子元素的容器進行暴力排版
+   ============================================== */
 
-/* 針對日曆區域的水平容器 */
-div[data-testid="stHorizontalBlock"] {
+/* 🅰️ 針對日曆網格 (特徵：擁有 7 個 Column) */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
     display: grid !important;
-    grid-template-columns: repeat(7, 1fr) !important; /* 強制切成 7 等份 */
+    grid-template-columns: repeat(7, 1fr) !important; /* 強制 7 等分 */
     gap: 2px !important;
     width: 100% !important;
-    margin: 0 !important;
+    justify-content: center !important; /* 畫面上置中 */
+    margin-bottom: 5px !important;
 }
 
-/* 強制每個格子 (Column) 的行為 */
-div[data-testid="column"] {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
+/* 日曆網格內的 Column */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
+    min-width: 0px !important;
     width: auto !important;
-    min-width: 0px !important; /* 👈 關鍵：允許縮到無限小 */
     padding: 0 !important;
     margin: 0 !important;
-    overflow: hidden !important;
+    display: flex;
+    justify-content: center;
 }
 
-/* 3. 按鈕樣式 (微縮工程) */
-div[data-testid="stButton"] {
+/* 日曆網格內的按鈕 (微縮成正方形) */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
     width: 100% !important;
-}
-
-div[data-testid="stButton"] button {
-    width: 100% !important;
-    min-width: 0px !important;    /* 移除最小寬度限制 */
-    padding: 0px !important;      /* 移除內距 */
-    margin: 0px !important;
-    border-radius: 4px !important;
-    border: 1px solid #ccc !important;
-    
-    /* 讓按鈕內容居中 */
+    min-width: 0px !important;
+    padding: 0px !important;
+    aspect-ratio: 1 / 1 !important; /* 強制正方形 */
+    height: auto !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    
-    /* 強制高度與正方形 */
-    height: auto !important;
-    aspect-ratio: 1 / 1 !important; 
     line-height: 1 !important;
-    
-    /* 字體設定：根據寬度自動調整的感覺，但我們寫死小一點 */
-    font-size: 14px !important;
+    border-radius: 4px !important;
+    border: 1px solid #ccc !important;
     font-weight: 600 !important;
 }
 
-/* 4. 強制縮小手機版字體 (螢幕 < 400px 時) */
-@media (max-width: 400px) {
-    div[data-testid="stButton"] button {
-        font-size: 12px !important; /* 字體再縮小，防止撐開 */
-    }
-    div[data-testid="stButton"] button p {
-        font-size: 12px !important;
-    }
-    .day-header {
-        font-size: 11px !important;
-    }
+/* 🅱️ 針對導航列 (特徵：擁有 3 個 Column) */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important; /* 垂直置中 */
+    justify-content: space-between !important;
+    gap: 0px !important;
+    margin-bottom: 10px !important;
 }
 
-/* 5. 其他 UI 美化 */
-.day-header {
-    text-align: center; font-size: 13px; font-weight: 700; color: #666; margin-bottom: 4px;
+/* 導航列內的按鈕 (不要變成正方形，要正常大小) */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
+    height: 40px !important;
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+    font-size: 20px !important;
+    color: #555 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none !important;
 }
+
+/* 導航列的箭頭 hover 效果 */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button:hover {
+    background: rgba(0,0,0,0.05) !important;
+    color: #000 !important;
+}
+
+/* 3. 手機版字體微調 (螢幕 < 450px) */
+@media (max-width: 450px) {
+    /* 日曆按鈕字體 */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
+        font-size: 13px !important; 
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button p {
+        font-size: 13px !important;
+    }
+    /* 星期標題 */
+    .day-header { font-size: 11px !important; }
+    /* 導航標題 */
+    .nav-label { font-size: 18px !important; }
+}
+
+/* 4. 其他 UI 美化 */
+.day-header { text-align: center; font-size: 13px; font-weight: 700; color: #666; margin-bottom: 2px; }
 .day-header.sunday { color: #cc0000; }
 
 .nav-label {
-    font-size: 20px; font-weight: 700; text-align: center; color: #333; white-space: nowrap;
+    font-size: 20px; font-weight: 700; text-align: center; color: #333; 
+    white-space: nowrap; line-height: 40px;
 }
 
-/* 按鈕狀態 */
-button:disabled {
-    background-color: #e5e5e5 !important;
-    color: #bbb !important;
-    border: 1px solid #ddd !important;
-    opacity: 0.6 !important;
-    cursor: not-allowed !important;
+/* 狀態顏色 */
+button:disabled { background-color: #e5e5e5 !important; color: #bbb !important; cursor: not-allowed !important; opacity: 0.6 !important; border: 1px solid #ddd !important; }
+button[kind="primary"] { background-color: #ef4444 !important; color: white !important; border: none !important; }
+
+/* 進入排班按鈕 */
+.enter-btn-wrap button {
+    background-color: white !important; color: #333 !important;
+    border: 1.5px solid #333 !important; margin-top: 15px !important;
+    height: 48px !important; width: 100% !important; font-size: 16px !important;
 }
 
-button[kind="primary"] {
-    background-color: #ef4444 !important;
-    color: white !important;
-    border: none !important;
-}
-
-/* 進入排班按鈕 (不需要正方形) */
-.enter-btn-wrap div[data-testid="stButton"] button {
-    aspect-ratio: auto !important; 
-    height: 48px !important;
-    background-color: white !important;
-    color: #333 !important;
-    border: 1.5px solid #333 !important;
-    margin-top: 15px !important;
-}
-
-/* 公告與其他 */
+/* 公告與表格 */
 .ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 15px 0; }
 .ann-title { border-bottom: 1.5px solid #333; padding: 8px; font-weight: 700; text-align: center; }
 .ann-body { padding: 12px; font-size: 14px; color: #333; line-height: 1.6; }
 
-/* 導航列特殊處理：不要用 grid，改回 flex 以免變形 */
-.nav-row div[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    gap: 10px !important;
-}
-
-/* Grid View (Table) */
+.wk-title { font-size: 20px; font-weight: 700; margin: 10px 5px; }
 .wk-wrap { overflow-x: auto; margin: 5px 0; }
 .wk-tbl { border-collapse: collapse; width: 100%; font-size: 11px; }
 .wk-tbl th, .wk-tbl td { border: 1px solid #333; padding: 4px 2px; text-align: center; }
@@ -158,7 +155,7 @@ button[kind="primary"] {
 .wk-empty-cell { background: #FFE033; height: 20px; }
 .edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 6px 0; }
 .bot-join { background: #4ECDC4; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; color: #111; }
-.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; aspect-ratio: auto !important; }
+.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -169,6 +166,7 @@ button[kind="primary"] {
 ZONES   = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
 ZONES_S = ["1F沉浸","1F驗票","2F特展","3F展","4F展","5F閱"]
 ADMIN_PW = "1234"
+# WD: 0=Mon, 6=Sun
 WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
 MON_EN = ["","January","February","March","April","May","June",
            "July","August","September","October","November","December"]
@@ -283,10 +281,11 @@ def page_calendar():
     weeks = get_weeks(year, month)
     sel_start = st.session_state.sel_week_start
 
-    # ── Month Navigation ──
-    # 使用 div class 標記，以便 CSS 特殊處理 (避免變成 Grid)
-    st.markdown('<div class="nav-row">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 4, 1])
+    # ── Month Navigation (修正為 1:5:1 比例，確保文字空間) ──
+    # 因為 CSS 有針對 3 個 div 的容器做設定，這裡會自動套用 Flexbox
+    c_nav = st.container()
+    c1, c2, c3 = c_nav.columns([1, 5, 1]) 
+    
     with c1:
         if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
             st.session_state.month_idx = idx-1
@@ -299,36 +298,37 @@ def page_calendar():
             st.session_state.month_idx = idx+1
             st.session_state.sel_week_start = None
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
     st.write("") 
 
     # ── Days Header ──
-    header_cols = st.columns(7)
-    days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    for i, label in enumerate(days_labels):
-        cls = "day-header sunday" if i == 6 else "day-header"
-        header_cols[i].markdown(f'<div class="{cls}">{label}</div>', unsafe_allow_html=True)
+    # 使用 container 包裹，這也是 7 個 div，會被 CSS 抓到變成 Grid
+    with st.container():
+        header_cols = st.columns(7)
+        days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for i, label in enumerate(days_labels):
+            cls = "day-header sunday" if i == 6 else "day-header"
+            header_cols[i].markdown(f'<div class="{cls}">{label}</div>', unsafe_allow_html=True)
 
-    # ── Calendar Grid ──
-    for ws, days in weeks:
-        is_selected = (sel_start == ws)
-        btn_type = "primary" if is_selected else "secondary"
+        # ── Calendar Grid ──
+        for ws, days in weeks:
+            is_selected = (sel_start == ws)
+            btn_type = "primary" if is_selected else "secondary"
 
-        dcols = st.columns(7)
-        
-        for i, d in enumerate(days):
-            with dcols[i]:
-                # 1. 非本月日期 (但保留空白格)
-                if d.month != month:
-                    st.empty() 
-                else:
-                    is_closed = not is_open(d)
-                    label = str(d.day)
-                    
-                    if st.button(label, key=f"btn_{d}", type=btn_type, disabled=is_closed, use_container_width=True):
-                        st.session_state.sel_week_start = ws
-                        st.rerun()
+            dcols = st.columns(7)
+            
+            for i, d in enumerate(days):
+                with dcols[i]:
+                    if d.month != month:
+                        st.empty() # 佔位但空白
+                    else:
+                        is_closed = not is_open(d)
+                        label = str(d.day)
+                        
+                        # 按鈕邏輯
+                        if st.button(label, key=f"btn_{d}", type=btn_type, disabled=is_closed, use_container_width=True):
+                            st.session_state.sel_week_start = ws
+                            st.rerun()
 
     # ── Enter Scheduling Button ──
     if sel_start:
