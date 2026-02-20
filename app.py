@@ -52,13 +52,31 @@ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button{
     border:1px solid #ccc!important;font-weight:600!important;font-size:14px!important;
 }
 
-/* 3-col month nav */
+/* 3-col month nav - 修改箭頭間距與大小 */
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child){
-    margin-bottom:4px!important;gap:0!important;align-items:center!important;
+    margin-bottom:8px!important;
+    gap:0!important;
+    align-items:center!important;
 }
+/* 強制讓中間的文字欄位置中 */
+div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child) div[data-testid="column"]:nth-child(2) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+/* 讓左右按鈕容器寬度一致 */
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child) button{
-    height:30px!important;border:none!important;background:transparent!important;
-    font-size:18px!important;color:#555!important;box-shadow:none!important;
+    height:36px!important;
+    width:100%!important;
+    border:none!important;
+    background:transparent!important;
+    font-size:22px!important; /* 稍微放大 */
+    color:#555!important;
+    box-shadow:none!important;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0!important;
 }
 
 /* enter button */
@@ -88,10 +106,8 @@ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child) button{
     writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1px;padding:0 2px;}
 .wk-filled-cell{background:#FFD700;}
 .wk-empty-cell{background:#FFF;}
-/* 正常休館（週一等）*/
 .wk-closed-cell{background:#e0e0e0;color:#999;font-size:10px;letter-spacing:1px;
     background-image:repeating-linear-gradient(45deg,transparent,transparent 5px,#ccc 5px,#ccc 6px);}
-/* 開放月份範圍外（前後跨月）— 更深的斜線 */
 .wk-outrange-cell{background:#d0d0d0;
     background-image:repeating-linear-gradient(45deg,transparent,transparent 4px,#aaa 4px,#aaa 5px);}
 .vol-name{font-size:13px;font-weight:600;color:#000;display:block;
@@ -138,7 +154,6 @@ button:disabled{background:#e5e5e5!important;color:#bbb!important;opacity:0.6!im
 .admin-back-btn button{background:#c8c8c8!important;color:#444!important;border:none!important;
     border-radius:10px!important;height:48px!important;font-size:15px!important;}
 
-/* ── Mini calendar for holiday admin ── */
 .mini-cal-wrap{background:white;border-radius:10px;padding:10px 8px 8px;
     border:1px solid #ddd;margin-bottom:10px;}
 .mini-cal-month{text-align:center;font-weight:700;font-size:14px;
@@ -151,12 +166,11 @@ button:disabled{background:#e5e5e5!important;color:#bbb!important;opacity:0.6!im
 .mc-day{width:30px;height:30px;border-radius:50%;display:inline-flex;
     align-items:center;justify-content:center;font-size:12px;font-weight:500;margin:auto;}
 .mc-normal{color:#222;background:transparent;}
-.mc-closed-def{background:#e0e0e0;color:#888;}  /* 預設休館（週一、週日） */
-.mc-closed-sp{background:#ef4444;color:white;}  /* 特別設定休館 */
-.mc-open-sp{background:#4ECDC4;color:white;}    /* 特別設定開館（覆蓋週一） */
+.mc-closed-def{background:#e0e0e0;color:#888;}
+.mc-closed-sp{background:#ef4444;color:white;}
+.mc-open-sp{background:#4ECDC4;color:white;}
 .mc-pad{color:#ddd;font-size:12px;}
 
-/* legend */
 .cal-legend{display:flex;flex-wrap:wrap;gap:8px;
     font-size:11px;margin-bottom:8px;align-items:center;}
 .leg-dot{width:12px;height:12px;border-radius:50%;
@@ -222,7 +236,6 @@ init_state()
 
 # ── Helpers ────────────────────────────────────────────────
 def is_open(d: date) -> bool:
-    """Regular open/closed check (holidays, Mon default, etc.)"""
     if d in st.session_state.closed_days: return False
     if d in st.session_state.open_days:   return True
     if d.weekday() == 0: return False
@@ -246,10 +259,6 @@ def get_weeks(year, month):
     return weeks
 
 def open_bounds():
-    """
-    Return (min_date, max_date) = first day of earliest open month
-    to last day of latest open month.
-    """
     months = sorted(st.session_state.open_months_list)
     if not months:
         t = date.today(); return t, t
@@ -257,14 +266,10 @@ def open_bounds():
     return date(y0,m0,1), date(y1,m1,calendar.monthrange(y1,m1)[1])
 
 def clipped_week_label(ws: date) -> str:
-    """
-    Build the enter-button label using only dates within open bounds.
-    e.g. if open starts 3/1 and week is 2/23~3/1, show '3/1(日)'.
-    """
     min_d, max_d = open_bounds()
     we      = ws + timedelta(days=6)
-    eff_s   = max(ws, min_d)   # clamp start
-    eff_e   = min(we, max_d)   # clamp end
+    eff_s   = max(ws, min_d)
+    eff_e   = min(we, max_d)
     if eff_s == eff_e:
         return f"{eff_s.month}/{eff_s.day}({WD[eff_s.weekday()]})"
     return (f"{eff_s.month}/{eff_s.day}({WD[eff_s.weekday()]})"
@@ -275,12 +280,6 @@ def full_week_label(ws: date) -> str:
     return f"{ws.month}/{ws.day}({WD[ws.weekday()]})～{we.month}/{we.day}({WD[we.weekday()]})"
 
 def day_status(d: date, min_d: date, max_d: date) -> str:
-    """
-    Returns:
-      'outrange'  — outside open month bounds  → dark stripes, not selectable
-      'closed'    — inside bounds but休館        → light stripes, not selectable
-      'open'      — normal open day             → yellow / selectable
-    """
     if d < min_d or d > max_d:
         return "outrange"
     if not is_open(d):
@@ -308,15 +307,16 @@ def page_calendar():
     sel_start = st.session_state.sel_week_start
     min_d, max_d = open_bounds()
 
-    # Month nav
-    c1,c2,c3 = st.columns([1,5,1])
+    # Month nav - 調整欄位比例為 [1, 3, 1] 讓箭頭間距更緊湊對齊
+    c1,c2,c3 = st.columns([1,3,1])
     with c1:
         if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
             st.session_state.month_idx = idx-1
             st.session_state.sel_week_start = None
             st.rerun()
-    c2.markdown(f"<div style='text-align:center;font-weight:700;font-size:16px;'>"
-                f"{MON_EN[month]} {year}</div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"<div style='text-align:center;font-weight:700;font-size:16px;line-height:36px;'>"
+                    f"{MON_EN[month]} {year}</div>", unsafe_allow_html=True)
     with c3:
         if st.button("▶", key="next_m", disabled=(idx>=len(months)-1), use_container_width=True):
             st.session_state.month_idx = idx+1
@@ -346,7 +346,6 @@ def page_calendar():
                         st.session_state.sel_week_start = ws
                         st.rerun()
 
-    # Enter button — label clipped to open range
     if sel_start:
         lbl = f"進入排班　{clipped_week_label(sel_start)}"
         st.markdown('<div class="enter-btn">', unsafe_allow_html=True)
@@ -383,7 +382,6 @@ def page_week_grid():
                 f'<span class="header-title">志工排班表</span>'
                 f'<span class="header-date">{MON_EN[cm]} {cy}</span></div>', unsafe_allow_html=True)
 
-    # ── Grid ──────────────────────────────
     html = '<div class="wk-wrap"><table class="wk-tbl"><tr>'
     html += '<th class="wk-date-cell">日期</th><th class="wk-shift-cell"></th>'
     for z in zone_names: html += f'<th>{z}</th>'
@@ -395,7 +393,6 @@ def page_week_grid():
         lbl    = f"{day.month}/{day.day}<br>({WD[day.weekday()]})"
 
         if status == "outrange":
-            # 開放月份範圍外 → 深斜線，兩行合一，不顯示文字
             html += (f'<tr>'
                      f'<td class="wk-date-cell" rowspan="2" style="color:#bbb;">{lbl}</td>'
                      f'<td class="wk-shift-cell" style="color:#bbb;">上午</td>'
@@ -403,14 +400,12 @@ def page_week_grid():
                      f'</tr>'
                      f'<tr><td class="wk-shift-cell" style="color:#bbb;">下午</td></tr>')
         elif status == "closed":
-            # 正常休館 → 輕斜線
             html += (f'<tr>'
                      f'<td class="wk-date-cell" style="height:26px;">{lbl}</td>'
                      f'<td class="wk-shift-cell"></td>'
                      f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell" style="height:26px;">休館</td>'
                      f'</tr>')
         else:
-            # Open — 上午
             html += f'<tr><td class="wk-date-cell" rowspan="2">{lbl}</td><td class="wk-shift-cell">上午</td>'
             for z_id in INTERNAL_ZONES:
                 k  = f"{d_str}_上午_{z_id}_1"
@@ -430,7 +425,6 @@ def page_week_grid():
     html += '</table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # ── Week nav — bounded by open months ──
     prev_ws  = ws - timedelta(weeks=1)
     next_ws  = ws + timedelta(weeks=1)
     prev_ok  = (prev_ws + timedelta(days=6)) >= min_d
@@ -450,34 +444,24 @@ def page_week_grid():
             st.session_state.sel_cell = None
             st.rerun()
 
-    # ── Input section ──
-    # Only days that are truly 'open' AND within open bounds
     open_days = [d for d in week_days if day_status(d, min_d, max_d) == "open"]
 
     if open_days:
         st.markdown("**📝 登記排班**")
-
         d_opts   = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days]
         d_idx    = st.selectbox("日期", range(len(open_days)),
-                                format_func=lambda i: d_opts[i], key="pk_d")
+                               format_func=lambda i: d_opts[i], key="pk_d")
         sel_date = open_days[d_idx]
-
         shifts = ["上午","下午"]
         s_idx  = st.selectbox("時段", range(2), format_func=lambda i: shifts[i], key="pk_s")
         sel_sf = shifts[s_idx]
-
         z_idx  = st.selectbox("區域", range(len(zone_names)),
-                              format_func=lambda i: zone_names[i], key="pk_z")
+                             format_func=lambda i: zone_names[i], key="pk_z")
         sel_zid = INTERNAL_ZONES[z_idx]
-
         key = f"{sel_date.strftime('%Y-%m-%d')}_{sel_sf}_{sel_zid}_1"
         val = st.session_state.bookings.get(key, "")
-
-        new_n = st.text_input("輸入或刪除名字", val, key="in_n",
-                              placeholder="輸入名字（清空=取消排班）")
-
+        new_n = st.text_input("輸入或刪除名字", val, key="in_n", placeholder="輸入名字（清空=取消排班）")
         save_clicked = st.button("儲存", key="save_entry", use_container_width=True)
-
         if save_clicked:
             fresh = load_data()
             cloud = fresh.get(key,"")
@@ -549,7 +533,6 @@ def page_admin_months():
     if st.button("← 返回",key="bk_m"): nav("admin")
 
 def render_mini_cal(year, month):
-    """Render a read-only HTML mini-calendar for the holidays admin page."""
     weeks = get_weeks(year, month)
     html  = f'<div class="mini-cal-wrap">'
     html += f'<div class="mini-cal-month">{year}年 {month}月</div>'
@@ -557,20 +540,18 @@ def render_mini_cal(year, month):
     for h in ["一","二","三","四","五","六"]:
         html += f'<th>{h}</th>'
     html += '<th class="mc-sun">日</th></tr>'
-
     for _, days in weeks:
         html += '<tr>'
         for d in days:
             if d.month != month:
                 html += '<td><span class="mc-pad">·</span></td>'
                 continue
-            # Determine display class
             if d in st.session_state.closed_days:
-                cls = "mc-day mc-closed-sp"          # 特別休館（紅）
+                cls = "mc-day mc-closed-sp"
             elif d in st.session_state.open_days:
-                cls = "mc-day mc-open-sp"            # 特別開館（青）
-            elif d.weekday() in (0, 6):              # Mon / Sun 預設休館
-                cls = "mc-day mc-closed-def"         # 灰
+                cls = "mc-day mc-open-sp"
+            elif d.weekday() in (0, 6):
+                cls = "mc-day mc-closed-def"
             else:
                 cls = "mc-day mc-normal"
             html += f'<td><span class="{cls}">{d.day}</span></td>'
@@ -578,12 +559,9 @@ def render_mini_cal(year, month):
     html += '</table></div>'
     return html
 
-
 def page_admin_holidays():
     st.markdown("## 休館設定")
     st.caption("預設週一及週日休館，可額外設定特別休館/開館日。")
-
-    # ── Legend ──
     st.markdown(
         '<div class="cal-legend">'
         '<span><span class="leg-dot" style="background:#e0e0e0;"></span>預設休館</span>'
@@ -591,14 +569,9 @@ def page_admin_holidays():
         '<span><span class="leg-dot" style="background:#4ECDC4;"></span>特別開館</span>'
         '<span><span class="leg-dot" style="background:#fff;border:1px solid #ccc;"></span>正常開館</span>'
         '</div>', unsafe_allow_html=True)
-
-    # ── Mini calendars for each open month ──
     for y, m in sorted(st.session_state.open_months_list):
         st.markdown(render_mini_cal(y, m), unsafe_allow_html=True)
-
     st.markdown("---")
-
-    # ── Date picker + buttons ──
     di = st.date_input("選擇日期", min_value=date(2025,1,1), key="hol_d")
     h1, h2 = st.columns(2)
     if h1.button("❌ 設為休館", key="set_cl", type="primary"):
@@ -613,94 +586,52 @@ def page_admin_holidays():
         save_data("SYS_CLOSED_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
         save_data("SYS_OPEN_DAYS",   json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
         st.success("✅ 已設為開館"); st.rerun()
-
     if st.session_state.closed_days:
-        st.markdown("**特別休館日：** " + "、".join(
-            [f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.closed_days)]))
+        st.markdown("**特別休館日：** " + "、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.closed_days)]))
     if st.session_state.open_days:
-        st.markdown("**特別開館日：** " + "、".join(
-            [f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.open_days)]))
-
+        st.markdown("**特別開館日：** " + "、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.open_days)]))
     if st.button("← 返回", key="bk_h"): nav("admin")
 
-
 def page_admin_export():
-    """Download volunteer schedule as Excel."""
     st.markdown("## 📥 下載值班表 Excel")
     st.caption("將開放月份內所有有登記姓名的值班資料匯出為 Excel。")
-
     zone_names = st.session_state.zone_names
-
-    # Build rows from bookings
     rows = []
     bookings = st.session_state.bookings
-
     for key, val in bookings.items():
         if key.startswith("SYS_"): continue
         val = val.strip()
         if not val: continue
-
-        # key format: YYYY-MM-DD_上午/下午_Z1..Z6_1
         parts = key.split("_")
         if len(parts) != 4: continue
         d_str, shift, z_id, slot = parts
         if z_id not in INTERNAL_ZONES: continue
-
         try:
             d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
-        except:
-            continue
-
-        # Only include dates within open months
+        except: continue
         min_d, max_d = open_bounds()
         if d_obj < min_d or d_obj > max_d: continue
-
         z_idx    = INTERNAL_ZONES.index(z_id)
         z_name   = zone_names[z_idx] if z_idx < len(zone_names) else z_id
         weekday  = f"週{WD[d_obj.weekday()]}"
         date_lbl = f"{d_obj.month}/{d_obj.day}({weekday})"
-
-        rows.append({
-            "日期":    d_obj,
-            "日期顯示": date_lbl,
-            "星期":    weekday,
-            "時段":    shift,
-            "區域":    z_name,
-            "姓名":    val,
-            "名額":    slot,
-        })
-
+        rows.append({"日期": d_obj, "日期顯示": date_lbl, "星期": weekday, "時段": shift, "區域": z_name, "姓名": val, "名額": slot})
     if not rows:
         st.info("目前開放月份內尚無任何值班登記。")
     else:
-        df = (pd.DataFrame(rows)
-              .sort_values(["日期","時段","區域","名額"])
-              .reset_index(drop=True))
+        df = (pd.DataFrame(rows).sort_values(["日期","時段","區域","名額"]).reset_index(drop=True))
         df_out = df[["日期顯示","星期","時段","區域","姓名"]].copy()
         df_out.columns = ["日期","星期","上下午","區域","姓名"]
-
-        # Preview
         st.dataframe(df_out, use_container_width=True, hide_index=True)
-
-        # Excel download
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df_out.to_excel(writer, index=False, sheet_name="值班表")
             ws_xl = writer.sheets["值班表"]
-            # Auto-width columns
             for col in ws_xl.columns:
                 max_len = max(len(str(cell.value or "")) for cell in col)
                 ws_xl.column_dimensions[col[0].column_letter].width = max_len + 4
         buf.seek(0)
-
-        st.download_button(
-            label="⬇️ 下載 Excel",
-            data=buf,
-            file_name=f"志工值班表_{date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
-
+        st.download_button(label="⬇️ 下載 Excel", data=buf, file_name=f"志工值班表_{date.today()}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     if st.button("← 返回", key="bk_ex"): nav("admin")
 
 def page_admin_ann():
