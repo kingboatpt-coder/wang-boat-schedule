@@ -27,7 +27,7 @@ MON_EN = ["","January","February","March","April","May","June",
            "July","August","September","October","November","December"]
 
 # ─────────────────────────────────────────
-#  GLOBAL CSS (緊湊版修正)
+#  GLOBAL CSS
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -35,157 +35,108 @@ st.markdown("""
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stToolbar"], [data-testid="stDecoration"], section[data-testid="stSidebar"] { display: none !important; }
 
-/* 2. 背景與主容器：極限貼邊 */
+/* 2. 背景與主容器 */
 .stApp { background-color: #e8e3d8 !important; }
 .block-container {
-    padding-top: 5px !important;   /* 頂部縮減 */
-    padding-bottom: 20px !important;
-    padding-left: 2px !important;
-    padding-right: 2px !important;
+    padding-top: 10px !important;
+    padding-bottom: 30px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
     max-width: 500px !important; 
     margin: 0 auto !important;
 }
 
 /* ==============================================
-   🎯 緊湊化調整 (Spacing Optimization)
+   🎯 日曆頁面樣式
    ============================================== */
-
-/* 標題與導航列之間的距離 */
-h2 {
-    margin-bottom: 0px !important;
-    padding-bottom: 0px !important;
-    font-size: 24px !important;
-}
-
-/* 導航列 (月份) 緊縮 */
-div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) {
-    margin-bottom: 5px !important; /* 縮小導航列下方的留白 */
-    gap: 0px !important; /* 移除欄位間距 */
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-/* 導航列文字 */
-.nav-label {
-    font-size: 18px !important; 
-    font-weight: 700; 
-    text-align: center; 
-    color: #333; 
-    white-space: nowrap; 
-    line-height: 1;
-    margin: 0 5px; /* 讓文字與箭頭保持一點點距離 */
-}
-
-/* 導航箭頭按鈕 */
-div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
-    height: 30px !important; /* 按鈕變矮 */
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    font-size: 18px !important;
-    color: #555 !important;
-    box-shadow: none !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* 日曆標頭 (Mon-Sun) */
-.day-header {
-    text-align: center; 
-    font-size: 12px; 
-    font-weight: 700; 
-    color: #666; 
-    margin-bottom: 2px !important; /* 縮小標頭與格子距離 */
-    margin-top: 0px !important;
-}
-.day-header.sunday { color: #cc0000; }
-
-/* 日曆格子容器 */
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
-    gap: 1px !important;
-    width: 100% !important;
-    margin-bottom: 2px !important; /* 縮小每一週之間的距離 */
     display: grid !important;
     grid-template-columns: repeat(7, 1fr) !important;
-}
-
-/* 日曆按鈕 */
-div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
+    gap: 2px !important;
     width: 100% !important;
-    min-width: 0px !important;
-    padding: 0px !important;
-    aspect-ratio: 1 / 1 !important;
-    height: auto !important;
-    line-height: 1 !important;
-    border-radius: 4px !important;
-    border: 1px solid #ccc !important;
+    margin-bottom: 5px !important;
+}
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
+    min-width: 0px !important; width: auto !important; padding: 0 !important; margin: 0 !important;
+    display: flex; justify-content: center;
+}
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
+    width: 100% !important; min-width: 0px !important; padding: 0px !important;
+    aspect-ratio: 1 / 1 !important; height: auto !important;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1 !important; border-radius: 4px !important; border: 1px solid #ccc !important;
     font-weight: 600 !important;
-    font-size: 14px !important;
 }
 
-/* 進入排班按鈕區塊 */
-.enter-btn-wrap {
-    margin-top: 10px !important; /* 縮小與日曆的距離 */
-    margin-bottom: 10px !important;
+/* 導航列 */
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) {
+    display: flex !important; align-items: center !important; justify-content: space-between !important;
 }
-.enter-btn-wrap button { 
-    background-color: white !important; color: #333 !important; 
-    border: 1.5px solid #333 !important; 
-    height: 40px !important; /* 按鈕變矮 */
-    width: 100% !important; 
-    font-size: 15px !important; font-weight: 700 !important;
+div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
+    border: none !important; background: transparent !important;
+    font-size: 20px !important; color: #555 !important; box-shadow: none !important;
 }
 
-/* 公告區塊 */
-.ann-box { 
-    background: white; border: 2px solid #333; border-radius: 6px; 
-    margin-top: 5px !important; /* 緊貼上方按鈕 */
-    margin-bottom: 10px !important; 
-}
-.ann-title { 
-    border-bottom: 1.5px solid #333; 
-    padding: 6px; /* 縮小內距 */
-    font-weight: 700; text-align: center; font-size: 15px;
-}
-.ann-body { 
-    padding: 8px 12px; /* 縮小內距 */
-    font-size: 13px; line-height: 1.5; color: #333; 
-}
-
-/* 管理員登入按鈕 */
-.admin-access-wrap {
-    margin-top: 5px !important;
-    text-align: center;
-}
-.admin-access-wrap button { 
-    background: transparent !important; color: #aaa !important; border: none !important; font-size: 11px !important; padding: 0 !important; height: auto !important;
-}
-
-/* 手機版字體微調 */
 @media (max-width: 450px) {
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button { font-size: 12px !important; }
-    .day-header { font-size: 10px !important; }
-    .nav-label { font-size: 16px !important; }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button { font-size: 13px !important; }
+    .day-header { font-size: 11px !important; }
+    .nav-label { font-size: 18px !important; }
 }
 
 /* ==============================================
-   🎯 排班表樣式 (Week Grid)
+   🎯 排班表頁面樣式
    ============================================== */
-.shift-toggle-wrap { display: flex; gap: 0px; margin-bottom: 5px; background: white; border-radius: 8px; padding: 2px; border: 1px solid #ccc; }
-.wk-wrap { overflow-x: auto; margin: 0 0 5px 0; }
+.shift-toggle-wrap {
+    display: flex; gap: 0px; margin-bottom: 10px; background: white;
+    border-radius: 8px; padding: 2px; border: 1px solid #ccc;
+}
+
+/* 表格優化 */
+.wk-wrap { overflow-x: auto; margin: 0 0 10px 0; }
 .wk-tbl { border-collapse: collapse; width: 100%; font-size: 12px; table-layout: fixed; }
-.wk-tbl th { border: 1px solid #333; padding: 2px; text-align: center; background: #eee; font-weight: 600; white-space: normal !important; word-wrap: break-word !important; vertical-align: middle; height: 35px; font-size: 11px; }
-.wk-tbl td { border: 1px solid #333; padding: 2px; text-align: center; vertical-align: middle; height: 40px; }
-.wk-date-cell { background: #f5f5f5; font-weight: 700; font-size: 11px; width: 30px; }
+
+.wk-tbl th { 
+    border: 1px solid #333; padding: 2px; text-align: center; background: #eee; font-weight: 600;
+    white-space: normal !important; word-wrap: break-word !important; vertical-align: middle; height: 40px; font-size: 11px;
+}
+
+.wk-tbl td { 
+    border: 1px solid #333; padding: 2px; text-align: center; vertical-align: middle; height: 45px;
+}
+
+.wk-date-cell { background: #f5f5f5; font-weight: 700; font-size: 11px; width: 35px; }
 .wk-filled-cell { background: #FFD700; }
 .wk-empty-cell { background: #FFF; }
-.wk-closed-cell { background: #e0e0e0; color: #999; font-size: 10px; letter-spacing: 1px; background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, #ccc 5px, #ccc 6px); }
-.vol-name { font-size: 13px; font-weight: 600; color: #000; display: block; line-height: 1.1; }
+.wk-closed-cell { 
+    background: #e0e0e0; color: #999; font-size: 10px; letter-spacing: 1px;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, #ccc 5px, #ccc 6px);
+}
+.vol-name { font-size: 14px; font-weight: 600; color: #000; display: block; line-height: 1.2; }
 .sel-border { outline: 2px solid #cc0000; outline-offset: -2px; }
-.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 8px 0; border: 1px solid #ccc; }
-.bot-exit-wrap button { background: #888 !important; color: white !important; border: none !important; border-radius: 8px !important; height: 40px !important; font-size: 15px !important; font-weight: 600 !important; margin-top: 5px !important; }
+
+/* 其他通用 UI */
+.day-header { text-align: center; font-size: 13px; font-weight: 700; color: #666; margin-bottom: 2px; }
+.day-header.sunday { color: #cc0000; }
+.nav-label { font-size: 20px; font-weight: 700; text-align: center; color: #333; white-space: nowrap; line-height: 40px; }
+button:disabled { background-color: #e5e5e5 !important; color: #bbb !important; cursor: not-allowed !important; opacity: 0.6 !important; border: 1px solid #ddd !important; }
+button[kind="primary"] { background-color: #ef4444 !important; color: white !important; border: none !important; }
+
+/* 按鈕樣式 */
+.enter-btn-wrap button, .save-btn-wrap button { 
+    background-color: white !important; color: #333 !important; 
+    border: 1.5px solid #333 !important; margin-top: 15px !important; 
+    height: 48px !important; width: 100% !important; font-size: 16px !important; font-weight: 700 !important;
+}
+.save-btn-wrap button {
+    background-color: #4ECDC4 !important; border: none !important; color: black !important;
+}
+
+.ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 15px 0; }
+.ann-title { border-bottom: 1.5px solid #333; padding: 8px; font-weight: 700; text-align: center; }
+.ann-body { padding: 12px; font-size: 14px; color: #333; line-height: 1.6; }
+.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 15px; margin: 10px 0; border: 1px solid #ccc; }
+.bot-exit-wrap button { background: #888 !important; color: white !important; border: none !important; border-radius: 10px !important; height: 50px !important; font-size: 16px !important; font-weight: 600 !important; }
+.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -257,7 +208,7 @@ def init_state():
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
     st.session_state.sel_week_start = None
-    st.session_state.sel_cell       = None
+    st.session_state.sel_cell       = None 
     st.session_state.grid_shift     = "上午"
     st.session_state.app_ready      = True
 
@@ -269,7 +220,7 @@ init_state()
 def is_open(d: date) -> bool:
     if d in st.session_state.closed_days: return False
     if d in st.session_state.open_days:   return True
-    if d.weekday() == 0: return False # Monday Closed
+    if d.weekday() == 0: return False 
     return True
 
 def nav(page):
@@ -295,7 +246,6 @@ def get_weeks(year, month):
 def page_calendar():
     months = sorted(st.session_state.open_months_list)
     
-    # 標題
     st.markdown("<h2>志工排班表</h2>", unsafe_allow_html=True)
 
     if not months:
@@ -307,11 +257,9 @@ def page_calendar():
     weeks = get_weeks(year, month)
     sel_start = st.session_state.sel_week_start
 
-    # ── Month Navigation (修正為 1:3:1，讓箭頭更靠近文字) ──
     c_nav = st.container()
     c1, c2, c3 = c_nav.columns([1, 3, 1]) 
     with c1:
-        # 使用 div 包裹按鈕，強制靠右對齊
         st.markdown('<div style="text-align: right;">', unsafe_allow_html=True)
         if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
             st.session_state.month_idx = idx-1
@@ -321,7 +269,6 @@ def page_calendar():
     with c2:
         st.markdown(f'<div class="nav-label">{MON_EN[month]} {year}</div>', unsafe_allow_html=True)
     with c3:
-        # 使用 div 包裹按鈕，強制靠左對齊
         st.markdown('<div style="text-align: left;">', unsafe_allow_html=True)
         if st.button("▶", key="next_m", disabled=(idx>=len(months)-1), use_container_width=True):
             st.session_state.month_idx = idx+1
@@ -329,18 +276,13 @@ def page_calendar():
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 移除多餘的 spacer，直接顯示日曆
-    
-    # Calendar Grid
     with st.container():
-        # Header
         header_cols = st.columns(7)
         days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         for i, label in enumerate(days_labels):
             cls = "day-header sunday" if i == 6 else "day-header"
             header_cols[i].markdown(f'<div class="{cls}">{label}</div>', unsafe_allow_html=True)
 
-        # Weeks
         for ws, days in weeks:
             is_selected = (sel_start == ws)
             btn_type = "primary" if is_selected else "secondary"
@@ -390,6 +332,9 @@ def page_week_grid():
     cy, cm = months[min(st.session_state.month_idx, len(months)-1)]
     shift    = st.session_state.grid_shift
     zone_names = st.session_state.zone_names
+    
+    # 🌟 補上這一行，修復 NameError 🌟
+    sel_cell = st.session_state.get("sel_cell")
 
     st.markdown(f"<div class='wk-title'>志工排班表</div>", unsafe_allow_html=True)
     st.caption(f"{MON_EN[cm]} {cy}")
@@ -402,7 +347,6 @@ def page_week_grid():
         if st.button("🌤️ 下午", key="t_pm", use_container_width=True, type="primary" if shift=="下午" else "secondary"):
             st.session_state.grid_shift = "下午"; st.rerun()
 
-    # Grid HTML
     time_lbl = "09:00-12:00" if shift=="上午" else "14:00-17:00"
     html  = '<div class="wk-wrap"><table class="wk-tbl">'
     html += f'<tr><th colspan="7" style="background:#ddd;font-size:12px;padding:2px;">{shift}（{time_lbl}）</th></tr>'
@@ -419,7 +363,7 @@ def page_week_grid():
         if closed: lbl += '<br><span style="color:#c00;font-size:8px;">休</span>'
 
         if closed:
-            html += f'<tr><td class="wk-date-cell" style="height:80px;">{lbl}</td>' # 高度縮小
+            html += f'<tr><td class="wk-date-cell" style="height:80px;">{lbl}</td>' 
             html += f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell">休 館</td>'
             html += '</tr>'
         else:
@@ -511,7 +455,7 @@ def page_week_grid():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────
-#  ADMIN PAGES (略，維持原樣)
+#  ADMIN PAGES
 # ─────────────────────────────────────────
 def page_admin_login():
     st.markdown("<h2>管理員登入</h2>", unsafe_allow_html=True)
