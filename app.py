@@ -47,7 +47,7 @@ st.markdown("""
 }
 
 /* ==============================================
-   🎯 日曆頁面樣式
+   🎯 日曆頁面 (Month View)
    ============================================== */
 h2 { margin-bottom: 0px !important; padding-bottom: 0px !important; font-size: 24px !important; }
 
@@ -72,7 +72,6 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
     font-size: 18px !important; color: #555 !important; box-shadow: none !important;
 }
 
-/* 手機版微調 */
 @media (max-width: 450px) {
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button { font-size: 12px !important; }
     .day-header { font-size: 10px !important; }
@@ -80,7 +79,7 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
 }
 
 /* ==============================================
-   🎯 排班表頁面樣式 (Week Grid)
+   🎯 排班表頁面 (Week Grid)
    ============================================== */
 
 /* 表格樣式 */
@@ -92,10 +91,11 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
     white-space: normal !important; word-wrap: break-word !important; vertical-align: middle; height: 35px; font-size: 11px;
 }
 .wk-tbl td { 
-    border: 1px solid #333; padding: 2px; text-align: center; vertical-align: middle; height: 35px; /* 格子高度縮小 */
+    border: 1px solid #333; padding: 2px; text-align: center; vertical-align: middle; height: 35px;
 }
 
 .wk-date-cell { background: #f5f5f5; font-weight: 700; font-size: 11px; width: 35px; }
+.wk-shift-cell { background: #e8e8e8; font-size: 10px; width: 25px; font-weight: 600; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px;} 
 .wk-filled-cell { background: #FFD700; }
 .wk-empty-cell { background: #FFF; }
 .wk-closed-cell { 
@@ -105,30 +105,24 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
 .vol-name { font-size: 13px; font-weight: 600; color: #000; display: block; line-height: 1.1; }
 .sel-border { outline: 2px solid #cc0000; outline-offset: -2px; }
 
-/* ⚠️ 輸入區塊極限壓縮 (Input Area Compression) */
-/* 讓 Selectbox 和 TextInput 的標題與輸入框距離縮小 */
+/* 輸入區塊壓縮 */
 div[data-testid="stSelectbox"] label, div[data-testid="stTextInput"] label {
-    font-size: 13px !important;
-    margin-bottom: 0px !important; /* 標題貼近輸入框 */
-    min-height: 0px !important;
+    font-size: 13px !important; margin-bottom: 0px !important; min-height: 0px !important;
 }
 div[data-testid="stSelectbox"] div[data-baseweb="select"], div[data-testid="stTextInput"] div[data-baseweb="input"] {
-    min-height: 35px !important; /* 輸入框變矮 */
-    height: 35px !important;
+    min-height: 35px !important; height: 35px !important;
 }
 div[data-testid="stSelectbox"], div[data-testid="stTextInput"] {
-    margin-bottom: 5px !important; /* 每個元件之間的距離縮小 */
+    margin-bottom: 5px !important;
 }
 
-/* 儲存按鈕與返回按鈕 */
-.save-btn-wrap button, .bot-exit-wrap button {
-    height: 40px !important; 
-    font-size: 15px !important; 
-    font-weight: 700 !important;
-    margin-top: 5px !important;
+/* 儲存/返回/導航按鈕 */
+.save-btn-wrap button, .bot-exit-wrap button, .nav-week-btn button {
+    height: 40px !important; font-size: 15px !important; font-weight: 700 !important; margin-top: 5px !important;
 }
 .save-btn-wrap button { background-color: #4ECDC4 !important; color: black !important; border: none !important; }
 .bot-exit-wrap button { background: #888 !important; color: white !important; border: none !important; border-radius: 8px !important; }
+.nav-week-btn button { background: white !important; color: #555 !important; border: 1px solid #ccc !important; border-radius: 8px !important; }
 
 /* 其他通用 UI */
 .day-header { text-align: center; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 2px; }
@@ -144,15 +138,9 @@ button[kind="primary"] { background-color: #ef4444 !important; color: white !imp
 .admin-access-wrap { margin-top: 5px !important; text-align: center; }
 .admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 11px !important; padding: 0 !important; height: auto !important; }
 
-/* 針對輸入區塊的背景樣式 (取代 Expander) */
 .input-area {
-    background-color: white;
-    border-radius: 0 0 8px 8px; /* 下方圓角 */
-    padding: 10px;
-    border-left: 1px solid #ccc;
-    border-right: 1px solid #ccc;
-    border-bottom: 1px solid #ccc;
-    margin-bottom: 10px;
+    background-color: white; border-radius: 0 0 8px 8px; padding: 10px;
+    border-left: 1px solid #ccc; border-right: 1px solid #ccc; border-bottom: 1px solid #ccc; margin-bottom: 10px;
 }
 
 </style>
@@ -215,7 +203,6 @@ def init_state():
     try:
         st.session_state.open_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_OPEN_DAYS","[]"))]
     except: st.session_state.open_days = []
-    
     try:
         st.session_state.zone_names = json.loads(raw.get("SYS_ZONE_NAMES", json.dumps(DEFAULT_ZONE_NAMES)))
     except: 
@@ -226,7 +213,6 @@ def init_state():
     st.session_state.month_idx      = 0
     st.session_state.sel_week_start = None
     st.session_state.sel_cell       = None 
-    st.session_state.grid_shift     = "上午"
     st.session_state.app_ready      = True
 
 init_state()
@@ -346,21 +332,22 @@ def page_week_grid():
 
     week_days = [ws + timedelta(days=i) for i in range(7)]
     months = sorted(st.session_state.open_months_list)
-    cy, cm = months[min(st.session_state.month_idx, len(months)-1)]
-    shift    = st.session_state.grid_shift
+    
+    # 確保不會 out of range (雖然前面有卡控)
+    m_idx = min(st.session_state.month_idx, len(months)-1)
+    cy, cm = months[m_idx]
+    
     zone_names = st.session_state.zone_names
     sel_cell = st.session_state.get("sel_cell")
 
     st.markdown(f"<div class='wk-title'>志工排班表</div>", unsafe_allow_html=True)
     st.caption(f"{MON_EN[cm]} {cy}")
 
-    # Grid HTML
-    time_lbl = "09:00-12:00" if shift=="上午" else "14:00-17:00"
+    # (2) 表格
     html  = '<div class="wk-wrap"><table class="wk-tbl">'
-    html += f'<tr><th colspan="7" style="background:#ddd;font-size:12px;padding:2px;">{shift}（{time_lbl}）</th></tr>'
     
     # 表頭
-    html += '<tr><th class="wk-hdr-zone" style="width:30px;">日期</th>'
+    html += '<tr><th class="wk-hdr-zone" style="width:30px;">日期</th><th class="wk-hdr-zone" style="width:20px;"></th>'
     for z_name in zone_names: 
         html += f'<th class="wk-hdr-zone">{z_name}</th>'
     html += '</tr>'
@@ -369,19 +356,32 @@ def page_week_grid():
         d_str  = day.strftime('%Y-%m-%d')
         closed = not is_open(day)
         lbl    = f"{day.month}/{day.day}<br>({WD[day.weekday()]})"
-        if closed: lbl += '<br><span style="color:#c00;font-size:8px;">休</span>'
-
+        
         if closed:
-            # 休館日：高度設為 35px (因為現在只有一格志工)
-            html += f'<tr><td class="wk-date-cell" style="height:35px;">{lbl}</td>' 
+            # 休館日：高度 70px (35px * 2)
+            html += f'<tr><td class="wk-date-cell" style="height:70px;">{lbl}</td>'
+            html += f'<td class="wk-shift-cell"></td>' # 佔位
             html += f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell">休 館</td>'
             html += '</tr>'
         else:
-            # 開館日：每個點只需 1 人，所以只有一列 (Row)
-            html += f'<tr><td class="wk-date-cell">{lbl}</td>'
+            # (1) 同時顯示上下午：兩列
+            # Row 1: 上午
+            html += f'<tr><td class="wk-date-cell" rowspan="2">{lbl}</td>'
+            html += f'<td class="wk-shift-cell">上午</td>'
             for i, z_id in enumerate(INTERNAL_ZONES):
-                # 因為只剩一位，這裡固定只抓 _1 的資料
-                k = f"{d_str}_{shift}_{z_id}_1"
+                k = f"{d_str}_上午_{z_id}_1"
+                v = st.session_state.bookings.get(k,"").strip()
+                cls = "wk-filled-cell" if v else "wk-empty-cell"
+                sc = " sel-border" if k==sel_cell else ""
+                ct = f"<span class='vol-name'>{v}</span>" if v else ""
+                html += f'<td class="{cls}{sc}">{ct}</td>'
+            html += '</tr>'
+            
+            # Row 2: 下午
+            html += '<tr>'
+            html += f'<td class="wk-shift-cell">下午</td>'
+            for i, z_id in enumerate(INTERNAL_ZONES):
+                k = f"{d_str}_下午_{z_id}_1"
                 v = st.session_state.bookings.get(k,"").strip()
                 cls = "wk-filled-cell" if v else "wk-empty-cell"
                 sc = " sel-border" if k==sel_cell else ""
@@ -392,46 +392,56 @@ def page_week_grid():
     html += '</table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # 上下午切換鈕 (移至下方，左右平分)
+    # (3) 週間導航按鈕 (移到日曆下方)
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("🌞 上午", key="t_am", use_container_width=True, type="primary" if shift=="上午" else "secondary"):
-            st.session_state.grid_shift = "上午"; st.rerun()
+        st.markdown('<div class="nav-week-btn">', unsafe_allow_html=True)
+        if st.button("◀ 上一週", key="prev_w", use_container_width=True):
+            st.session_state.sel_week_start -= timedelta(weeks=1)
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     with c2:
-        if st.button("🌤️ 下午", key="t_pm", use_container_width=True, type="primary" if shift=="下午" else "secondary"):
-            st.session_state.grid_shift = "下午"; st.rerun()
+        st.markdown('<div class="nav-week-btn">', unsafe_allow_html=True)
+        if st.button("下一週 ▶", key="next_w", use_container_width=True):
+            st.session_state.sel_week_start += timedelta(weeks=1)
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # 輸入區 (Input Area) - 移除 Expander，改為直接顯示
+    # 輸入區 (依順序：日期 -> 時段 -> 區域 -> 姓名)
     open_days = [d for d in week_days if is_open(d)]
     
     if open_days:
         st.markdown('<div class="input-area">', unsafe_allow_html=True)
-        st.markdown("<b>📝 點選想要登記的格子</b>", unsafe_allow_html=True)
+        st.markdown("<b>📝 登記排班</b>", unsafe_allow_html=True)
         
-        # 日期選擇
+        # 1. 日期
         d_opts = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days]
         d_idx = st.selectbox("日期", range(len(open_days)), format_func=lambda i: d_opts[i], key="pk_d")
         sel_date = open_days[d_idx]
         
-        # 區域選擇
+        # 2. 時段 (新加入)
+        shifts = ["上午", "下午"]
+        s_idx = st.selectbox("時段", range(len(shifts)), format_func=lambda i: shifts[i], key="pk_s")
+        sel_shift = shifts[s_idx]
+
+        # 3. 區域
         z_idx = st.selectbox("區域", range(len(zone_names)), format_func=lambda i: zone_names[i], key="pk_z")
         sel_zone_id = INTERNAL_ZONES[z_idx]
         
-        # 讀取資料
-        k1 = f"{sel_date.strftime('%Y-%m-%d')}_{shift}_{sel_zone_id}_1"
-        v1 = st.session_state.bookings.get(k1, "")
+        # 讀取資料 key
+        key = f"{sel_date.strftime('%Y-%m-%d')}_{sel_shift}_{sel_zone_id}_1"
+        val = st.session_state.bookings.get(key, "")
 
-        # 輸入框 (志工1)
+        # 4. 姓名輸入
         st.markdown("<div style='margin-top:2px;'><b>輸入或刪除名字</b></div>", unsafe_allow_html=True)
-        new_n1 = st.text_input("志工姓名", v1, key="in_n1", placeholder="輸入名字", label_visibility="collapsed")
+        new_n = st.text_input("志工姓名", val, key="in_n", placeholder="輸入名字", label_visibility="collapsed")
 
-        # 儲存按鈕
+        # 儲存
         st.markdown('<div class="save-btn-wrap">', unsafe_allow_html=True)
         if st.button("儲存", key="save_entry", use_container_width=True):
-            st.session_state.bookings[k1] = new_n1
-            save_data(k1, new_n1)
-            # 更新選取格，讓紅框跳到剛編輯的格子
-            st.session_state.sel_cell = k1
+            st.session_state.bookings[key] = new_n
+            save_data(key, new_n)
+            st.session_state.sel_cell = key # 讓紅框定位
             st.success("已儲存！")
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -447,7 +457,7 @@ def page_week_grid():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────
-#  ADMIN PAGES
+#  ADMIN PAGES (略，維持原樣)
 # ─────────────────────────────────────────
 def page_admin_login():
     st.markdown("<h2>管理員登入</h2>", unsafe_allow_html=True)
