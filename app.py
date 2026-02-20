@@ -242,11 +242,6 @@ else:
             with st.expander("📊 點此展開本月總覽表 / 下載 Excel", expanded=False):
                 st.caption("💡 空白的格子代表還有缺額，可直接點擊下方日期搶班。")
                 
-                # 準備資料
-                # 這裡我們會準備兩份資料：
-                # overview_data -> 給網頁看 (橫向表格，比較直觀)
-                # download_data -> 給下載用 (直向清單，手機才不會亂碼)
-                
                 overview_data = [] # 網頁用
                 download_data = [] # 下載用
                 
@@ -281,14 +276,15 @@ else:
                                 display_status = "、".join(names) if names else ""
                                 row_for_web[z] = display_status
                                 
-                                # --- 2. 準備下載用的資料 (改成手機好讀的條列式) ---
-                                # 格式：日期 | 時段 | 區域 | 姓名
-                                download_data.append({
-                                    "日期": d_display,
-                                    "時段": shift,
-                                    "排班點位": z,
-                                    "志工姓名": display_status if names else "(空)"
-                                })
+                                # --- 2. 準備下載用的資料 (只加入有人的資料！) ---
+                                # 如果 names 是空的，就不執行 append，這樣下載檔案就不會有空行
+                                if names:
+                                    download_data.append({
+                                        "日期": d_display,
+                                        "時段": shift,
+                                        "排班點位": z,
+                                        "志工姓名": display_status
+                                    })
                             
                             overview_data.append(row_for_web)
 
@@ -306,19 +302,21 @@ else:
                         height=400
                     )
                     
-                    # B. 檔案下載：使用新的 download_data (直向清單)
-                    # 這樣手機打開 Excel 就不會是一堆逗號了！
+                    # B. 檔案下載：使用 download_data
+                    # 注意：如果整個月都沒有人排班，download_data 會是空的，這時不顯示下載按鈕或顯示提示
                     if download_data:
                         df_download = pd.DataFrame(download_data)
                         csv_bytes = df_download.to_csv(index=False).encode('utf-8-sig')
                         
                         st.download_button(
-                            label=f"📥 下載 {year}年{month}月 排班表 (手機好讀版)",
+                            label=f"📥 下載 {year}年{month}月 排班表 (已過濾空班)",
                             data=csv_bytes,
                             file_name=f"王船文化館排班表_{year}_{month:02d}.csv",
                             mime="text/csv",
                             type="primary"
                         )
+                    else:
+                        st.caption("ℹ️ 目前本月份尚未有志工登記排班，暫無資料可下載。")
                 else:
                     st.info("本月份目前沒有開放日或排班資料。")
             
