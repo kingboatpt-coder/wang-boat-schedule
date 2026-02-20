@@ -41,47 +41,56 @@ html, body, [class*="css"] {
     font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Helvetica Neue", sans-serif;
 }
 
-/* ── Calendar card ─── */
-.cal-card {
-    background: white;
-    border-radius: 14px;
-    padding: 16px 12px 20px 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
-    margin-bottom: 14px;
+/* ── Calendar Grid Styling ─── */
+/* Adjust standard buttons to look like calendar cells */
+div[data-testid="column"] button {
+    padding: 0px 0px !important;
+    min-height: 45px !important;
+    height: 45px !important;
+    border-radius: 8px !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
 }
 
-/* ── Calendar HTML table ─── */
-.cal-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-.cal-table th {
+/* Header for Days of Week */
+.day-header {
     text-align: center;
-    font-size: 12px;
-    font-weight: 600;
-    color: #888;
-    padding: 2px 0 8px 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #666;
+    margin-bottom: 5px;
 }
-.cal-table th.holiday-hdr { color: #cc0000; } /* Sunday or Holiday */
-.cal-table td {
-    text-align: center;
-    padding: 3px 0;
-    vertical-align: middle;
-}
-.cal-day-circle {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
+.day-header.sunday { color: #cc0000; }
+
+/* Month Navigation Styling */
+.nav-row {
+    display: flex;
     justify-content: center;
-    font-size: 16px;
-    font-weight: 500;
+    align-items: center;
+    margin-bottom: 10px;
+    background: white;
+    padding: 10px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
-.cal-day-normal { color: #222; }
-.cal-day-gray   { background: #e5e5ea; color: #aaa; }
-.cal-day-today  { border: 2px solid #888; color: #444; background: #e5e5ea; }
-.cal-day-pad    { color: #ccc; font-size: 15px; }
+.nav-btn-wrap button {
+    background: transparent !important;
+    border: none !important;
+    color: #888 !important;
+    font-size: 20px !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+}
+.nav-label {
+    font-size: 20px;
+    font-weight: 700;
+    padding: 0 15px;
+    color: #333;
+    min-width: 160px;
+    text-align: center;
+}
 
 /* ── Announcement ─── */
 .ann-box {
@@ -106,66 +115,22 @@ html, body, [class*="css"] {
     color: #333;
 }
 
-/* ── ALL Streamlit buttons base reset ─── */
-div[data-testid="stButton"] > button {
-    width: 100% !important;
-    min-width: 0 !important;
+/* ── Enter Button ─── */
+.enter-btn-wrap {
+    margin-top: 20px;
+    text-align: center;
 }
-
-/* Month nav arrows */
-.nav-col div[data-testid="stButton"] > button {
-    background: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    color: #888 !important;
-    font-size: 22px !important;
-    padding: 0 !important;
-    height: 36px !important;
-}
-
-/* Week selection buttons */
-.week-btn-inactive div[data-testid="stButton"] > button {
-    background: white !important;
-    border: 1.5px solid #bbb !important;
-    border-radius: 22px !important;
-    color: #444 !important;
-    font-size: 13px !important;
-    height: 36px !important;
-    margin-bottom: 4px !important;
-}
-.week-btn-active div[data-testid="stButton"] > button {
-    background: #cc0000 !important;
-    border: 1.5px solid #cc0000 !important;
-    border-radius: 22px !important;
+.enter-btn-wrap button {
+    background-color: #cc0000 !important;
     color: white !important;
-    font-size: 13px !important;
+    font-size: 18px !important;
     font-weight: 700 !important;
-    height: 36px !important;
-    margin-bottom: 4px !important;
+    height: 50px !important;
+    border-radius: 25px !important;
 }
 
-/* Admin hidden btn */
-.admin-access-wrap div[data-testid="stButton"] > button {
-    background: transparent !important;
-    color: #007bff !important; /* Blue text */
-    border-radius: 0 !important;
-    font-size: 14px !important;
-    border: none !important;
-    text-decoration: underline;
-    height: auto !important;
-    padding: 10px !important;
-}
-
-/* ── Week grid specific ─── */
-.grid-container {
-    background: white;
-    border-radius: 12px;
-    padding: 10px;
-    margin-top: 10px;
-    margin-bottom: 20px;
-    border: 1px solid #ddd;
-}
-.wk-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #333; }
+/* ── Week grid page ─── */
+.wk-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 
 /* Shift toggle */
 .shift-active div[data-testid="stButton"] > button {
@@ -173,8 +138,8 @@ div[data-testid="stButton"] > button {
     color: white !important;
     border: none !important;
     border-radius: 8px !important;
-    height: 38px !important;
-    font-size: 14px !important;
+    height: 44px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
 }
 .shift-inactive div[data-testid="stButton"] > button {
@@ -182,8 +147,8 @@ div[data-testid="stButton"] > button {
     color: #555 !important;
     border: 1.5px solid #ccc !important;
     border-radius: 8px !important;
-    height: 38px !important;
-    font-size: 14px !important;
+    height: 44px !important;
+    font-size: 15px !important;
 }
 
 /* Grid table */
@@ -236,11 +201,19 @@ div[data-testid="stButton"] > button {
 .bot-join {
     background: #4ECDC4;
     border-radius: 10px;
-    padding: 10px;
+    padding: 14px 10px;
     text-align: center;
     font-size: 14px; font-weight: 600;
-    color: #111;
-    margin-top: 5px;
+    line-height: 1.5; color: #111;
+    height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+}
+.bot-exit-wrap div[data-testid="stButton"] > button {
+    background: #888 !important; color: white !important;
+    border: none !important; border-radius: 10px !important;
+    height: 56px !important; font-size: 15px !important;
+    font-weight: 600 !important;
 }
 
 /* Expander */
@@ -278,6 +251,12 @@ div[data-testid="stExpander"] div[data-testid="stButton"] > button {
     border: none !important; border-radius: 10px !important;
     height: 50px !important; font-size: 15px !important;
     width: 140px !important;
+}
+.admin-access-wrap div[data-testid="stButton"] > button {
+    background: transparent !important;
+    color: #999 !important;
+    border: none !important;
+    font-size: 12px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -352,11 +331,9 @@ def init_state():
         st.session_state.open_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_OPEN_DAYS","[]"))]
     except: st.session_state.open_days = []
     st.session_state.announcement = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
-    
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
-    # Changed from sel_week_sun to sel_week_start (Monday)
-    st.session_state.sel_week_start = None 
+    st.session_state.sel_week_start = None # Stores the Monday of the selected week
     st.session_state.sel_cell       = None
     st.session_state.grid_shift     = "上午"
     st.session_state.app_ready      = True
@@ -369,44 +346,162 @@ init_state()
 def is_open(d: date) -> bool:
     if d in st.session_state.closed_days: return False
     if d in st.session_state.open_days:   return True
-    if d.weekday() == 0: return False # Monday closed
+    if d.weekday() == 0: return False # Monday Closed
     return True
 
 def nav(page):
     st.session_state.page = page
     st.rerun()
 
-# CHANGED: Get Week Start (Monday) instead of Sunday
-def week_start_date(d: date) -> date:
-    # d.weekday(): Mon=0 ... Sun=6
+def get_week_start(d: date) -> date:
+    # Get Monday of the week
     return d - timedelta(days=d.weekday())
 
-# CHANGED: Week generation based on Monday start
 def get_weeks(year, month):
     first = date(year, month, 1)
     last  = date(year, month, calendar.monthrange(year, month)[1])
-    start = week_start_date(first)
+    # Start from Monday of the first week
+    start = get_week_start(first)
     weeks = []
     while start <= last:
-        # Create a list of 7 days (Mon-Sun)
+        # Create list of 7 days (Mon-Sun)
         weeks.append((start, [start + timedelta(days=i) for i in range(7)]))
         start += timedelta(weeks=1)
     return weeks
 
 # ─────────────────────────────────────────
-#  COMPONENT: GRID VIEW (Embedded)
+#  PAGE: CALENDAR
 # ─────────────────────────────────────────
-def render_grid_component(ws_date):
-    """
-    Renders the schedule grid for a specific week (starting Mon).
-    Now embedded in the main page, so removed titles and exit buttons.
-    """
-    week_days = [ws_date + timedelta(days=i) for i in range(7)]
-    shift     = st.session_state.grid_shift
-    sel_cell  = st.session_state.sel_cell
+def page_calendar():
+    months = sorted(st.session_state.open_months_list)
+    today  = date.today()
+
+    # Title (Removed Sync button)
+    st.markdown("## 志工排班表")
+
+    if not months:
+        st.warning("⚠️ 暫無開放月份，請管理員設定。")
+        _admin_btn(); return
+
+    idx = min(st.session_state.month_idx, len(months)-1)
+    year, month = months[idx]
+    weeks = get_weeks(year, month)
     
-    st.markdown('<div class="grid-container">', unsafe_allow_html=True)
+    # Current selected week start (Monday)
+    sel_start = st.session_state.sel_week_start
+
+    # ── Month Navigation (Arrows next to Month) ──
+    # Using columns to create tight spacing: <  March 2026  >
+    st.markdown('<div class="cal-card">', unsafe_allow_html=True)
     
+    # Custom tight layout for nav
+    c_nav = st.container()
+    col_l, col_m, col_r = c_nav.columns([1, 4, 1])
+    
+    with col_l:
+        st.markdown('<div class="nav-btn-wrap">', unsafe_allow_html=True)
+        if st.button("◀", key="prev_m", disabled=(idx==0)):
+            st.session_state.month_idx = idx-1
+            st.session_state.sel_week_start = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with col_m:
+        st.markdown(f'<div class="nav-label">{MON_EN[month]} {year}</div>', unsafe_allow_html=True)
+        
+    with col_r:
+        st.markdown('<div class="nav-btn-wrap">', unsafe_allow_html=True)
+        if st.button("▶", key="next_m", disabled=(idx>=len(months)-1)):
+            st.session_state.month_idx = idx+1
+            st.session_state.sel_week_start = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    
+    # ── Interactive Button Calendar ──
+    # Headers: Mon to Sun
+    hcols = st.columns(7)
+    days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    for i, label in enumerate(days_labels):
+        cls = "day-header sunday" if i == 6 else "day-header"
+        hcols[i].markdown(f'<div class="{cls}">{label}</div>', unsafe_allow_html=True)
+
+    # Render Weeks
+    for ws, days in weeks:
+        # Is this week selected?
+        is_selected = (sel_start == ws)
+        # Button type: primary (red/filled) if selected, secondary (outline/ghost) if not
+        btn_type = "primary" if is_selected else "secondary"
+        
+        dcols = st.columns(7)
+        for i, d in enumerate(days):
+            with dcols[i]:
+                label = str(d.day)
+                # Visual fade for other month days
+                if d.month != month:
+                    # We can't change text color inside button easily, but we can keep it clickable
+                    # or just leave it standard. Let's keep it simple.
+                    pass
+                
+                # The BUTTON: Clicking any day selects the whole WEEK (ws)
+                # We use the date object as key to ensure uniqueness
+                if st.button(label, key=f"btn_{d}", type=btn_type, use_container_width=True):
+                    st.session_state.sel_week_start = ws
+                    st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True) # End cal-card
+
+    # ── Enter Scheduling Button (Only appears if week selected) ──
+    if sel_start:
+        # Calculate label for the button
+        # Week range: Monday to Sunday (or next Saturday?) 
+        # Usually schedules are Mon-Sun or Mon-Sat. Let's show Mon-Sun range.
+        w_end = sel_start + timedelta(days=6)
+        lbl = f"進入排班 ({sel_start.month}/{sel_start.day} ～ {w_end.month}/{w_end.day})"
+        
+        st.markdown('<div class="enter-btn-wrap">', unsafe_allow_html=True)
+        if st.button(lbl, key="enter_grid"):
+            st.session_state.sel_week_sun = sel_start # Map to old variable name for compatibility or use new
+            st.session_state.page = "week_grid"
+            st.session_state.sel_cell = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Announcement ────────────────────
+    ann = st.session_state.announcement.replace("<","&lt;").replace(">","&gt;")
+    st.markdown(f'<div class="ann-box"><div class="ann-title">公告</div><div class="ann-body">{ann}</div></div>', unsafe_allow_html=True)
+
+    _admin_btn()
+
+
+def _admin_btn():
+    st.markdown('<div class="admin-access-wrap" style="text-align:center;">', unsafe_allow_html=True)
+    if st.button("管理員登入", key="admin_access"):
+        nav("admin_login")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────
+#  PAGE: WEEK GRID
+# ─────────────────────────────────────────
+def page_week_grid():
+    # Use sel_week_start (Monday)
+    ws = st.session_state.get("sel_week_start") 
+    # Fallback for safety if coming from old state
+    if not ws: ws = st.session_state.get("sel_week_sun")
+        
+    if ws is None: nav("calendar"); return
+
+    week_days = [ws + timedelta(days=i) for i in range(7)]
+    months = sorted(st.session_state.open_months_list)
+    cy, cm = months[min(st.session_state.month_idx, len(months)-1)]
+    shift    = st.session_state.grid_shift
+    sel_cell = st.session_state.sel_cell
+
+    st.markdown(f"<div class='wk-title'>志工排班表</div>", unsafe_allow_html=True)
+    st.caption(f"{MON_EN[cm]} {cy}　可切換上下午查看排班狀況 ↓")
+
     # AM / PM toggle
     tc1, tc2 = st.columns(2)
     with tc1:
@@ -431,7 +526,7 @@ def render_grid_component(ws_date):
         html += f'<th class="wk-hdr-zone">{zs}</th>'
     html += '</tr>'
 
-    for day in week_days:  # Show full week Mon-Sun
+    for day in week_days:  # Show Mon-Sun
         d_str  = day.strftime('%Y-%m-%d')
         closed = not is_open(day)
         lbl    = f"{day.month}/{day.day}<br>({WD[day.weekday()]})"
@@ -498,164 +593,34 @@ def render_grid_component(ws_date):
         st.markdown('</div>', unsafe_allow_html=True)
 
     # Cell picker
-    # Filter open days for picker
-    open_days_in_week = [d for d in week_days if is_open(d)]
+    # Filter open days
+    open_days = [d for d in week_days if is_open(d)]
     with st.expander("📝 點選想要登記的格子", expanded=True):
-        if not open_days_in_week:
+        if not open_days:
             st.info("本週全部休館")
         else:
-            d_opts = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days_in_week]
-            di = st.selectbox("日期", range(len(open_days_in_week)), format_func=lambda i: d_opts[i], key="pk_d")
+            d_opts = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days]
+            di = st.selectbox("日期", range(len(open_days)), format_func=lambda i: d_opts[i], key="pk_d")
             zn = st.selectbox("區域", range(len(ZONES)), format_func=lambda i: ZONES_S[i], key="pk_z")
             sf_opts = ["上午","下午"]
             sf = st.selectbox("時段", sf_opts, index=sf_opts.index(shift), key="pk_sf")
             sl = st.selectbox("名額", ["1","2"], format_func=lambda s: f"志工{s}", key="pk_sl")
             if st.button("📌 選取此格", key="pick", type="primary", use_container_width=True):
-                k = f"{open_days_in_week[di].strftime('%Y-%m-%d')}_{sf}_{ZONES[zn]}_{sl}"
+                k = f"{open_days[di].strftime('%Y-%m-%d')}_{sf}_{ZONES[zn]}_{sl}"
                 st.session_state.sel_cell    = k
                 st.session_state.grid_shift = sf
                 st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True) # End grid-container
 
-
-# ─────────────────────────────────────────
-#  PAGE: CALENDAR (Main View)
-# ─────────────────────────────────────────
-def page_calendar():
-    months = sorted(st.session_state.open_months_list)
-    today  = date.today()
-
-    # Title - Removed Sync button as requested (Red text)
-    st.markdown("## 志工排班表")
-
-    if not months:
-        st.warning("⚠️ 暫無開放月份，請管理員設定。")
-        _admin_btn(); return
-
-    idx = min(st.session_state.month_idx, len(months)-1)
-    year, month = months[idx]
-    weeks = get_weeks(year, month)
-    sel_ws = st.session_state.sel_week_start
-
-    # ── Calendar card (HTML only) ────────
-    st.markdown('<div class="cal-card">', unsafe_allow_html=True)
-
-    # Month nav
-    nc1, nc2, nc3 = st.columns([1, 6, 1])
-    with nc1:
-        st.markdown('<div class="nav-col">', unsafe_allow_html=True)
-        if st.button("◀", key="prev_m", disabled=(idx==0)):
-            st.session_state.month_idx = idx-1
-            st.session_state.sel_week_start = None
+    # Bottom bar
+    bc1, bc2 = st.columns([3,2])
+    bc1.markdown('<div class="bot-join">加入或取消值班<br><small>（點選想要的格子）</small></div>', unsafe_allow_html=True)
+    with bc2:
+        st.markdown('<div class="bot-exit-wrap">', unsafe_allow_html=True)
+        if st.button("退出畫面", key="exit_g", use_container_width=True):
+            st.session_state.page = "calendar"
+            st.session_state.sel_cell = None
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-    nc2.markdown(
-        f"<div style='text-align:center;font-size:22px;font-weight:700;padding:4px 0;'>"
-        f"{MON_EN[month]} {year}</div>", unsafe_allow_html=True)
-    with nc3:
-        st.markdown('<div class="nav-col">', unsafe_allow_html=True)
-        if st.button("▶", key="next_m", disabled=(idx>=len(months)-1)):
-            st.session_state.month_idx = idx+1
-            st.session_state.sel_week_start = None
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Pure HTML calendar - CHANGED: Start from Monday
-    html = '<table class="cal-table"><tr>'
-    # Header: Mon -> Sun
-    for h in ["Mon","Tue","Wed","Thu","Fri","Sat"]:
-        html += f'<th>{h}</th>'
-    html += '<th class="holiday-hdr">Sun</th>'
-    html += '</tr>'
-
-    for ws, days in weeks:
-        is_sel = (sel_ws == ws)
-        # Build week row with red border via inline style if selected
-        if is_sel:
-            html += '<tr>'
-            for i, d in enumerate(days):
-                # i=0 is Mon, i=6 is Sun
-                border_style = "border-top:3px solid #cc0000;border-bottom:3px solid #cc0000;"
-                if i == 0: border_style += "border-left:3px solid #cc0000;"
-                if i == 6: border_style += "border-right:3px solid #cc0000;"
-                
-                if d.month != month:
-                    html += f'<td style="{border_style}"><span class="cal-day-pad">{d.day}</span></td>'
-                else:
-                    # Logic: is closed?
-                    closed = not is_open(d)
-                    if closed:
-                        cls = "cal-day-today" if d==today else "cal-day-gray"
-                        html += f'<td style="{border_style}"><span class="cal-day-circle {cls}">{d.day}</span></td>'
-                    else:
-                        html += f'<td style="{border_style}"><span class="cal-day-circle" style="background:#222;color:white;">{d.day}</span></td>'
-            html += '</tr>'
-        else:
-            html += '<tr>'
-            for d in days:
-                if d.month != month:
-                    html += f'<td><span class="cal-day-pad">{d.day}</span></td>'
-                else:
-                    closed = not is_open(d)
-                    if closed:
-                        cls = "cal-day-today" if d==today else "cal-day-gray"
-                        html += f'<td><span class="cal-day-circle {cls}">{d.day}</span></td>'
-                    else:
-                        cls = "cal-day-today" if d==today else "cal-day-normal"
-                        html += f'<td><span class="cal-day-circle {cls}">{d.day}</span></td>'
-            html += '</tr>'
-
-    html += '</table>'
-    st.markdown(html, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)  # close cal-card
-
-    # ── Week buttons (act as toggles/headers) ────
-    st.markdown("<div style='margin:10px 0 4px 0;font-weight:600;'>📅 點選週次進入排班：</div>", unsafe_allow_html=True)
-    
-    # Filter only weeks that have open days in current month
-    # Note: days is [Mon...Sun]
-    workable = [(ws,days) for ws,days in weeks
-                if any(d.month==month and is_open(d) for d in days)]
-
-    for wi, (ws, days) in enumerate(workable):
-        # Find open days to show in label
-        open_d = [d for d in days if d.month==month and is_open(d)]
-        if not open_d: continue
-        label = f"{open_d[0].month}/{open_d[0].day}({WD[open_d[0].weekday()]})～{open_d[-1].month}/{open_d[-1].day}({WD[open_d[-1].weekday()]})"
-        
-        is_s = (sel_ws == ws)
-        div_cls = "week-btn-active" if is_s else "week-btn-inactive"
-        prefix  = "✅ " if is_s else ""
-        
-        st.markdown(f'<div class="{div_cls}">', unsafe_allow_html=True)
-        # CHANGED: Button does not nav away, it toggles display on THIS page
-        if st.button(f"{prefix}第{wi+1}週：{label}", key=f"wk_{ws}", use_container_width=True):
-            if is_s:
-                st.session_state.sel_week_start = None # Toggle off
-            else:
-                st.session_state.sel_week_start = ws # Toggle on
-                st.session_state.sel_cell = None
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # CHANGED: Render Grid Immediately Below if Selected (Merged View)
-        if is_s:
-             render_grid_component(ws)
-
-    # ── Announcement ────────────────────
-    ann = st.session_state.announcement.replace("<","&lt;").replace(">","&gt;")
-    st.markdown(f'<div class="ann-box"><div class="ann-title">公告</div><div class="ann-body">{ann}</div></div>', unsafe_allow_html=True)
-
-    _admin_btn()
-
-
-def _admin_btn():
-    st.markdown('<div class="admin-access-wrap" style="text-align:center;margin-top:20px;">', unsafe_allow_html=True)
-    # CHANGED: Label (Blue text)
-    if st.button("管理員登入", key="admin_access"):
-        nav("admin_login")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────
@@ -750,11 +715,9 @@ def page_admin_ann():
 # ─────────────────────────────────────────
 #  ROUTER
 # ─────────────────────────────────────────
-# Merged structure means we mostly just use calendar, 
-# but we keep the admin routes.
 {
     "calendar":       page_calendar,
-    # "week_grid" is removed, its logic is now inside page_calendar
+    "week_grid":      page_week_grid,
     "admin_login":    page_admin_login,
     "admin":          page_admin,
     "admin_months":   page_admin_months,
