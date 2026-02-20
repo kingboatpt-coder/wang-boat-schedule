@@ -48,8 +48,8 @@ div[data-testid="stHorizontalBlock"] {
 
 /* 強制每個欄位寬度為螢幕的 1/7 (約 14.28%，我們設 13.8% 預留緩衝) */
 div[data-testid="column"] {
-    flex: 0 0 13.8vw !important; /* 關鍵：鎖定彈性寬度 */
-    width: 13.8vw !important;    /* 關鍵：鎖定絕對寬度 */
+    flex: 0 0 5.8vw !important; /* 關鍵：鎖定彈性寬度 */
+    width: 5.8vw !important;    /* 關鍵：鎖定絕對寬度 */
     min-width: 0px !important;   /* 允許縮到極小 */
     padding: 1px !important;     /* 極小間距 */
     margin: 0 !important;
