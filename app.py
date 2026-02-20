@@ -80,7 +80,7 @@ div[data-testid="stButton"] button {
     /* 字體縮小 */
     div[data-testid="stButton"] button {
         font-size: 14px !important;
-        font-weight: 600 !important;
+        font-weight: 50 !important;
         height: auto !important; /* 讓 aspect-ratio 控制高度 */
     }
     /* 星期標題 */
