@@ -17,6 +17,19 @@ except ImportError:
 st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide")
 
 # ─────────────────────────────────────────
+#  CONSTANTS (內部鍵值，不可變動以免資料遺失)
+# ─────────────────────────────────────────
+# 這些是資料庫存檔用的 ID，不會隨後台修改而變動
+INTERNAL_ZONES = ["Z1", "Z2", "Z3", "Z4", "Z5", "Z6"]
+# 預設顯示名稱
+DEFAULT_ZONE_NAMES = ["1F-沉浸室劇場", "1F-手扶梯驗票", "2F展區、特展", "3F-展區", "4F-展區", "5F-閱讀區"]
+
+ADMIN_PW = "1234"
+WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
+MON_EN = ["","January","February","March","April","May","June",
+           "July","August","September","October","November","December"]
+
+# ─────────────────────────────────────────
 #  GLOBAL CSS
 # ─────────────────────────────────────────
 st.markdown("""
@@ -25,22 +38,20 @@ st.markdown("""
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stToolbar"], [data-testid="stDecoration"], section[data-testid="stSidebar"] { display: none !important; }
 
-/* 2. 背景與主容器設定 */
+/* 2. 背景與主容器 */
 .stApp { background-color: #e8e3d8 !important; }
 .block-container {
     padding-top: 10px !important;
     padding-bottom: 30px !important;
     padding-left: 4px !important;
     padding-right: 4px !important;
-    max-width: 500px !important; /* 鎖定最大寬度 */
+    max-width: 500px !important; 
     margin: 0 auto !important;
 }
 
 /* ==============================================
-   🎯 日曆頁面樣式 (Calendar)
+   🎯 日曆頁面樣式
    ============================================== */
-
-/* 針對日曆網格 (7個欄位) */
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
     display: grid !important;
     grid-template-columns: repeat(7, 1fr) !important;
@@ -48,151 +59,65 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
     width: 100% !important;
     margin-bottom: 5px !important;
 }
-
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
-    min-width: 0px !important;
-    width: auto !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: flex;
-    justify-content: center;
+    min-width: 0px !important; width: auto !important; padding: 0 !important; margin: 0 !important;
+    display: flex; justify-content: center;
 }
-
-/* 日曆按鈕 */
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
-    width: 100% !important;
-    min-width: 0px !important;
-    padding: 0px !important;
-    aspect-ratio: 1 / 1 !important;
-    height: auto !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1 !important;
-    border-radius: 4px !important;
-    border: 1px solid #ccc !important;
+    width: 100% !important; min-width: 0px !important; padding: 0px !important;
+    aspect-ratio: 1 / 1 !important; height: auto !important;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1 !important; border-radius: 4px !important; border: 1px solid #ccc !important;
     font-weight: 600 !important;
 }
 
-/* 針對導航列 (3個欄位) */
+/* 導航列 */
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
+    display: flex !important; align-items: center !important; justify-content: space-between !important;
 }
 div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
-    border: none !important;
-    background: transparent !important;
-    font-size: 20px !important;
-    color: #555 !important;
-    box-shadow: none !important;
+    border: none !important; background: transparent !important;
+    font-size: 20px !important; color: #555 !important; box-shadow: none !important;
 }
 
-/* 手機版微調 */
 @media (max-width: 450px) {
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button { font-size: 13px !important; }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button p { font-size: 13px !important; }
     .day-header { font-size: 11px !important; }
     .nav-label { font-size: 18px !important; }
 }
 
 /* ==============================================
-   🎯 排班表頁面樣式 (Week Grid) - 本次修改重點
+   🎯 排班表頁面樣式
    ============================================== */
-
-/* 1. 上下午切換按鈕 (緊貼) */
 .shift-toggle-wrap {
-    display: flex;
-    gap: 0px; /* 移除間距 */
-    margin-bottom: 10px;
-    background: white;
-    border-radius: 8px;
-    padding: 2px;
-    border: 1px solid #ccc;
-}
-.shift-btn {
-    flex: 1;
-    border: none;
-    background: transparent;
-    padding: 8px 0;
-    font-weight: 700;
-    font-size: 14px;
-    border-radius: 6px;
-    color: #555;
-    cursor: pointer;
-    text-align: center;
-}
-.shift-btn.active {
-    background: #222;
-    color: white;
+    display: flex; gap: 0px; margin-bottom: 10px; background: white;
+    border-radius: 8px; padding: 2px; border: 1px solid #ccc;
 }
 
-/* 2. 表格樣式優化 */
+/* 表格優化：自動換行 */
 .wk-wrap { overflow-x: auto; margin: 0 0 10px 0; }
-.wk-tbl { 
-    border-collapse: collapse; 
-    width: 100%; 
-    font-size: 12px; 
-    table-layout: fixed; /* 固定佈局，確保格子大小一致 */
-}
+.wk-tbl { border-collapse: collapse; width: 100%; font-size: 12px; table-layout: fixed; }
 
-/* 表頭：允許換行 */
 .wk-tbl th { 
-    border: 1px solid #333; 
-    padding: 4px 2px; 
-    text-align: center; 
-    background: #eee; 
-    font-weight: 600;
-    white-space: normal; /* 允許換行 */
-    word-wrap: break-word; /* 強制換行 */
-    vertical-align: middle;
-    height: 35px;
+    border: 1px solid #333; padding: 2px; text-align: center; background: #eee; font-weight: 600;
+    white-space: normal !important; /* 允許換行 */
+    word-wrap: break-word !important; /* 強制長字換行 */
+    vertical-align: middle; height: 40px; font-size: 11px;
 }
 
-/* 表格內容 */
 .wk-tbl td { 
-    border: 1px solid #333; 
-    padding: 2px; 
-    text-align: center; 
-    vertical-align: middle;
-    height: 45px; /* 固定高度，讓每個格子一樣大 */
+    border: 1px solid #333; padding: 2px; text-align: center; vertical-align: middle; height: 45px;
 }
 
-/* 日期格 */
-.wk-date-cell { 
-    background: #f5f5f5; 
-    font-weight: 700; 
-    font-size: 11px;
-    width: 35px; /* 固定日期欄寬度 */
-}
-
-/* 填寫名字的格子 */
+.wk-date-cell { background: #f5f5f5; font-weight: 700; font-size: 11px; width: 35px; }
 .wk-filled-cell { background: #FFD700; }
 .wk-empty-cell { background: #FFF; }
-
-/* 休館日格子 */
 .wk-closed-cell { 
-    background: #e0e0e0; 
-    color: #999;
-    font-size: 10px;
-    letter-spacing: 1px;
+    background: #e0e0e0; color: #999; font-size: 10px; letter-spacing: 1px;
     background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, #ccc 5px, #ccc 6px);
 }
-
-/* 人名樣式 (放大、無編號) */
-.vol-name {
-    font-size: 14px; /* 放大字體 */
-    font-weight: 600;
-    color: #000;
-    display: block;
-    line-height: 1.2;
-}
-
-/* 選中格子的紅框 */
-.sel-border {
-    outline: 2px solid #cc0000;
-    outline-offset: -2px;
-}
+.vol-name { font-size: 14px; font-weight: 600; color: #000; display: block; line-height: 1.2; }
+.sel-border { outline: 2px solid #cc0000; outline-offset: -2px; }
 
 /* 其他通用 UI */
 .day-header { text-align: center; font-size: 13px; font-weight: 700; color: #666; margin-bottom: 2px; }
@@ -200,26 +125,26 @@ div[data-testid="stHorizontalBlock"]:has(> div:nth-child(3):last-child) button {
 .nav-label { font-size: 20px; font-weight: 700; text-align: center; color: #333; white-space: nowrap; line-height: 40px; }
 button:disabled { background-color: #e5e5e5 !important; color: #bbb !important; cursor: not-allowed !important; opacity: 0.6 !important; border: 1px solid #ddd !important; }
 button[kind="primary"] { background-color: #ef4444 !important; color: white !important; border: none !important; }
-.enter-btn-wrap button { background-color: white !important; color: #333 !important; border: 1.5px solid #333 !important; margin-top: 15px !important; height: 48px !important; width: 100% !important; font-size: 16px !important; }
+
+/* 進入/儲存/返回按鈕 */
+.enter-btn-wrap button, .save-btn-wrap button { 
+    background-color: white !important; color: #333 !important; 
+    border: 1.5px solid #333 !important; margin-top: 15px !important; 
+    height: 48px !important; width: 100% !important; font-size: 16px !important; font-weight: 700 !important;
+}
+.save-btn-wrap button {
+    background-color: #4ECDC4 !important; border: none !important; color: black !important;
+}
+
 .ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 15px 0; }
 .ann-title { border-bottom: 1.5px solid #333; padding: 8px; font-weight: 700; text-align: center; }
 .ann-body { padding: 12px; font-size: 14px; color: #333; line-height: 1.6; }
-.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 6px 0; }
-.bot-join { background: #4ECDC4; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; color: #111; }
+.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 15px; margin: 10px 0; border: 1px solid #ccc; }
+.bot-exit-wrap button { background: #888 !important; color: white !important; border: none !important; border-radius: 10px !important; height: 50px !important; font-size: 16px !important; font-weight: 600 !important; }
 .admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; }
 
 </style>
 """, unsafe_allow_html=True)
-
-# ─────────────────────────────────────────
-#  CONSTANTS
-# ─────────────────────────────────────────
-ZONES   = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
-ZONES_S = ["1F沉浸","1F驗票","2F特展","3F展","4F展","5F閱"]
-ADMIN_PW = "1234"
-WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
-MON_EN = ["","January","February","March","April","May","June",
-           "July","August","September","October","November","December"]
 
 # ─────────────────────────────────────────
 #  GOOGLE SHEETS
@@ -278,11 +203,18 @@ def init_state():
     try:
         st.session_state.open_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_OPEN_DAYS","[]"))]
     except: st.session_state.open_days = []
+    
+    # Load Zone Names (Dynamic)
+    try:
+        st.session_state.zone_names = json.loads(raw.get("SYS_ZONE_NAMES", json.dumps(DEFAULT_ZONE_NAMES)))
+    except: 
+        st.session_state.zone_names = DEFAULT_ZONE_NAMES
+
     st.session_state.announcement = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
     st.session_state.sel_week_start = None
-    st.session_state.sel_cell       = None
+    st.session_state.sel_cell       = None # Used for highlight only
     st.session_state.grid_shift     = "上午"
     st.session_state.app_ready      = True
 
@@ -405,12 +337,14 @@ def page_week_grid():
     months = sorted(st.session_state.open_months_list)
     cy, cm = months[min(st.session_state.month_idx, len(months)-1)]
     shift    = st.session_state.grid_shift
-    sel_cell = st.session_state.sel_cell
+    
+    # 取得目前的區域名稱
+    zone_names = st.session_state.zone_names
 
     st.markdown(f"<div class='wk-title'>志工排班表</div>", unsafe_allow_html=True)
     st.caption(f"{MON_EN[cm]} {cy}")
 
-    # (1) 上下午按鈕：改用 CSS 製作的緊密切換器
+    # 上下午按鈕
     c1, c2 = st.columns(2)
     with c1:
         if st.button("🌞 上午", key="t_am", use_container_width=True, type="primary" if shift=="上午" else "secondary"):
@@ -419,17 +353,15 @@ def page_week_grid():
         if st.button("🌤️ 下午", key="t_pm", use_container_width=True, type="primary" if shift=="下午" else "secondary"):
             st.session_state.grid_shift = "下午"; st.rerun()
 
-    # Grid HTML table
+    # Grid HTML
     time_lbl = "09:00-12:00" if shift=="上午" else "14:00-17:00"
-    
-    # 建立表格
     html  = '<div class="wk-wrap"><table class="wk-tbl">'
     html += f'<tr><th colspan="7" style="background:#ddd;font-size:12px;padding:4px;">{shift}（{time_lbl}）</th></tr>'
     
-    # 表頭：日期 + 區域
+    # 表頭：日期 + 動態區域名稱
     html += '<tr><th class="wk-hdr-zone" style="width:35px;">日期</th>'
-    for zs in ZONES_S: 
-        html += f'<th class="wk-hdr-zone">{zs}</th>'
+    for z_name in zone_names: 
+        html += f'<th class="wk-hdr-zone">{z_name}</th>'
     html += '</tr>'
 
     for day in week_days:  
@@ -439,97 +371,84 @@ def page_week_grid():
         if closed: lbl += '<br><span style="color:#c00;font-size:8px;">休</span>'
 
         if closed:
-            # (2) 休館日：只生成一列，高度加倍，中間無線，不顯示格子
-            # 這裡設定 height: 90px (45px * 2) 讓它看起來跟兩列一樣高
             html += f'<tr><td class="wk-date-cell" style="height:90px;">{lbl}</td>'
-            # 橫跨所有區域，顯示休館斜線或灰色
-            html += f'<td colspan="{len(ZONES)}" class="wk-closed-cell">休 館</td>'
+            html += f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell">休 館</td>'
             html += '</tr>'
         else:
-            # 開館日：生成兩列 (Slot 1 & Slot 2)
-            # Row 1 (Slot 1)
+            # Slot 1
             html += f'<tr><td class="wk-date-cell" rowspan="2">{lbl}</td>'
-            for z in ZONES:
-                k = f"{d_str}_{shift}_{z}_1"
+            for i, z_id in enumerate(INTERNAL_ZONES):
+                k = f"{d_str}_{shift}_{z_id}_1"
                 v = st.session_state.bookings.get(k,"").strip()
-                
-                # 樣式判斷
-                sc = " sel-border" if k==sel_cell else ""
                 cls = "wk-filled-cell" if v else "wk-empty-cell"
-                
-                # (4) 人名顯示：拿掉數字，字體放大 (.vol-name)
                 ct = f"<span class='vol-name'>{v}</span>" if v else ""
-                html += f'<td class="{cls}{sc}">{ct}</td>'
+                html += f'<td class="{cls}">{ct}</td>'
             html += '</tr>'
-
-            # Row 2 (Slot 2)
+            # Slot 2
             html += '<tr>'
-            for z in ZONES:
-                k = f"{d_str}_{shift}_{z}_2"
+            for i, z_id in enumerate(INTERNAL_ZONES):
+                k = f"{d_str}_{shift}_{z_id}_2"
                 v = st.session_state.bookings.get(k,"").strip()
-                
-                sc = " sel-border" if k==sel_cell else ""
                 cls = "wk-filled-cell" if v else "wk-empty-cell"
                 ct = f"<span class='vol-name'>{v}</span>" if v else ""
-                html += f'<td class="{cls}{sc}">{ct}</td>'
+                html += f'<td class="{cls}">{ct}</td>'
             html += '</tr>'
     
     html += '</table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # Edit bar
-    if sel_cell:
-        parts = sel_cell.split("_")
-        cur_val = st.session_state.bookings.get(sel_cell,"")
-        try:
-            d_obj = datetime.strptime(parts[0],"%Y-%m-%d").date()
-            lbl = f"{parts[0]}({WD[d_obj.weekday()]}) {parts[1]} {'_'.join(parts[2:-1])}"
-        except: lbl = sel_cell
-
-        st.markdown('<div class="edit-bar">', unsafe_allow_html=True)
-        st.markdown(f"<b>📍 {lbl}</b><br><small style='color:#666'>↓ 輸入名字後儲存</small>", unsafe_allow_html=True)
-        ei1, ei2, ei3 = st.columns([2,4,1])
-        ei1.markdown("<div style='padding-top:8px;font-weight:700;font-size:13px;'>輸入姓名</div>", unsafe_allow_html=True)
-        new_nm = ei2.text_input("姓名", cur_val, key=f"nm_{sel_cell}", label_visibility="collapsed", placeholder="輸入姓名")
-        with ei3:
-            if st.button("儲存", key="save_c", type="primary"):
-                fresh = load_data()
-                cloud = fresh.get(sel_cell,"")
-                old   = st.session_state.bookings.get(sel_cell,"")
-                if cloud.strip() and cloud != old:
-                    st.error(f"⚠️ 此格已被「{cloud}」先排班！")
-                    st.session_state.bookings[sel_cell] = cloud; st.rerun()
-                else:
-                    st.session_state.bookings[sel_cell] = new_nm
-                    save_data(sel_cell, new_nm)
-                    st.session_state.sel_cell = None; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Cell picker
+    # Input Area (取代原本的選擇器)
     open_days = [d for d in week_days if is_open(d)]
     with st.expander("📝 點選想要登記的格子", expanded=True):
         if not open_days:
             st.info("本週全部休館")
         else:
+            # 1. 選擇日期
             d_opts = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days]
-            di = st.selectbox("日期", range(len(open_days)), format_func=lambda i: d_opts[i], key="pk_d")
-            zn = st.selectbox("區域", range(len(ZONES)), format_func=lambda i: ZONES_S[i], key="pk_z")
-            sf_opts = ["上午","下午"]
-            sf = st.selectbox("時段", sf_opts, index=sf_opts.index(shift), key="pk_sf")
-            sl = st.selectbox("名額", ["1","2"], format_func=lambda s: f"名額{s}", key="pk_sl")
-            if st.button("📌 選取此格", key="pick", type="primary", use_container_width=True):
-                k = f"{open_days[di].strftime('%Y-%m-%d')}_{sf}_{ZONES[zn]}_{sl.replace('名額','')}"
-                st.session_state.sel_cell = k; st.session_state.grid_shift = sf; st.rerun()
+            d_idx = st.selectbox("日期", range(len(open_days)), format_func=lambda i: d_opts[i], key="pk_d")
+            sel_date = open_days[d_idx]
+            
+            # 2. 選擇區域 (使用顯示名稱)
+            z_idx = st.selectbox("區域", range(len(zone_names)), format_func=lambda i: zone_names[i], key="pk_z")
+            sel_zone_id = INTERNAL_ZONES[z_idx]
+            
+            # 3. 顯示時段 (唯讀，跟隨上方 tab)
+            st.markdown(f"<div style='font-size:14px;color:#666;margin-bottom:4px;'>時段：{shift}</div>", unsafe_allow_html=True)
 
-    # Bottom bar
-    bc1, bc2 = st.columns([3,2])
-    bc1.markdown('<div class="bot-join">加入或取消值班<br><small>（點選想要的格子）</small></div>', unsafe_allow_html=True)
-    with bc2:
-        if st.button("退出畫面", key="exit_g", use_container_width=True):
-            st.session_state.page = "calendar"; st.session_state.sel_cell = None; st.rerun()
+            # 4. 讀取現有資料
+            k1 = f"{sel_date.strftime('%Y-%m-%d')}_{shift}_{sel_zone_id}_1"
+            k2 = f"{sel_date.strftime('%Y-%m-%d')}_{shift}_{sel_zone_id}_2"
+            v1 = st.session_state.bookings.get(k1, "")
+            v2 = st.session_state.bookings.get(k2, "")
+
+            # 5. 輸入框 (直接編輯)
+            st.markdown("<div style='margin-top:10px;'><b>輸入或刪除名字</b></div>", unsafe_allow_html=True)
+            new_n1 = st.text_input("志工 1", v1, key="in_n1", placeholder="輸入名字")
+            new_n2 = st.text_input("志工 2", v2, key="in_n2", placeholder="輸入名字")
+
+            # 6. 儲存按鈕
+            st.markdown('<div class="save-btn-wrap">', unsafe_allow_html=True)
+            if st.button("儲存", key="save_entry", use_container_width=True):
+                # Save both slots
+                st.session_state.bookings[k1] = new_n1
+                st.session_state.bookings[k2] = new_n2
+                save_data(k1, new_n1)
+                save_data(k2, new_n2)
+                st.success("已儲存！")
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # Bottom bar (Return)
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="bot-exit-wrap">', unsafe_allow_html=True)
+    if st.button("返回", key="exit_g", use_container_width=True):
+        st.session_state.page = "calendar"
+        st.session_state.sel_cell = None
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────
-#  ADMIN PAGES (略)
+#  ADMIN PAGES
 # ─────────────────────────────────────────
 def page_admin_login():
     st.markdown("<h2>管理員登入</h2>", unsafe_allow_html=True)
@@ -544,7 +463,9 @@ def page_admin_login():
 
 def page_admin():
     st.markdown('<div class="admin-card"><div class="admin-title">管理員後台</div>', unsafe_allow_html=True)
-    for label, dest in [("管理開放月份","admin_months"),("休館設定","admin_holidays"),("公告修改","admin_ann")]:
+    # 新增按鈕：管理區域名稱
+    btns = [("管理開放月份","admin_months"),("休館設定","admin_holidays"),("公告修改","admin_ann"),("區域名稱設定","admin_zones")]
+    for label, dest in btns:
         st.markdown('<div class="admin-big-btn">', unsafe_allow_html=True)
         if st.button(label, key=f"ab_{dest}", use_container_width=True): nav(dest)
         st.markdown('</div><div style="height:8px"></div>', unsafe_allow_html=True)
@@ -605,6 +526,26 @@ def page_admin_ann():
         st.success("已更新！"); st.rerun()
     if st.button("← 返回",key="bk_ann"): nav("admin")
 
+def page_admin_zones():
+    st.markdown("## 區域名稱設定")
+    st.caption("修改表格上方的標題名稱。")
+    
+    current_names = st.session_state.zone_names
+    new_names = []
+    
+    # 產生 6 個輸入框
+    for i in range(6):
+        val = st.text_input(f"區域 {i+1} 名稱", value=current_names[i], key=f"zn_{i}")
+        new_names.append(val)
+        
+    if st.button("✅ 儲存區域名稱", type="primary"):
+        st.session_state.zone_names = new_names
+        save_data("SYS_ZONE_NAMES", json.dumps(new_names))
+        st.success("已更新區域名稱！")
+        st.rerun()
+        
+    if st.button("← 返回", key="bk_zn"): nav("admin")
+
 # ─────────────────────────────────────────
 #  ROUTER
 # ─────────────────────────────────────────
@@ -616,4 +557,5 @@ def page_admin_ann():
     "admin_months":   page_admin_months,
     "admin_holidays": page_admin_holidays,
     "admin_ann":      page_admin_ann,
+    "admin_zones":    page_admin_zones,
 }.get(st.session_state.get("page","calendar"), page_calendar)()
