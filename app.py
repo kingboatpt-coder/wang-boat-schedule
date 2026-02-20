@@ -225,43 +225,6 @@ with st.sidebar:
                 st.session_state.announcement = ann
                 save_data("SYS_ANNOUNCEMENT", ann)
                 st.rerun()
-        
-        with st.expander("📥 下載每月排班表 (Excel專用)"):
-            st.write("系統會自動將資料整理成完美排版的表格。")
-            dl_opts = [f"{y}年{m:02d}月" for y, m in sorted(st.session_state.open_months_list)]
-            if dl_opts:
-                dl_sel = st.selectbox("請選擇要下載的月份", dl_opts)
-                
-                y_str, m_str = dl_sel.replace("月","").split("年")
-                target_prefix = f"{y_str}-{m_str}"
-                
-                data_list = []
-                for k, v in st.session_state.bookings.items():
-                    if v.strip() and not str(k).startswith("SYS_"):
-                        if k.startswith(target_prefix): 
-                            parts = k.split("_")
-                            if len(parts) >= 4:
-                                data_list.append({
-                                    "日期": parts[0], 
-                                    "時段": parts[1], 
-                                    "區域": parts[2], 
-                                    "志工姓名": v
-                                })
-                
-                if data_list:
-                    df_dl = pd.DataFrame(data_list)
-                    df_dl = df_dl.sort_values(by=["日期", "時段", "區域"])
-                    csv_bytes = df_dl.to_csv(index=False).encode('utf-8-sig')
-                    
-                    st.download_button(
-                        label=f"💾 點此下載 {dl_sel} 班表",
-                        data=csv_bytes,
-                        file_name=f"王船文化館排班表_{dl_sel}.csv",
-                        mime="text/csv",
-                        type="primary"
-                    )
-                else:
-                    st.info("⚠️ 該月份目前尚無志工排班資料。")
 
 # --- 5. 主畫面 ---
 st.title("🚢 王船文化館 - 志工排班")
@@ -275,6 +238,66 @@ else:
     
     def render_cal(year, month, ctr):
         with ctr:
+            # ==========================================
+            # 📊 新增：本月排班總覽 (找空班專用) - 完全公開
+            # ==========================================
+            with st.expander("📊 點此展開本月總覽表 (找空班專用)", expanded=False):
+                st.caption("💡 空白的格子代表還有缺額，可以直接點擊下方的日期去搶班喔！")
+                
+                # 1. 準備表格資料
+                overview_data = []
+                # 取得當月所有天數
+                num_days = calendar.monthrange(year, month)[1]
+                
+                for day in range(1, num_days + 1):
+                    d_obj = date(year, month, day)
+                    
+                    # 判斷是否休館
+                    status = "open"
+                    if d_obj in st.session_state.closed_days: status = "closed"
+                    elif d_obj in st.session_state.open_days: status = "open"
+                    elif d_obj.weekday() == 0: status = "closed" # 週一固定休
+                    
+                    if status == "open":
+                        d_str = d_obj.strftime('%Y-%m-%d')
+                        
+                        # 每一天有上午、下午兩列
+                        for shift in ["上午", "下午"]:
+                            row = {
+                                "日期": f"{d_str} ({shift})",
+                            }
+                            # 填入各區域的志工名字
+                            for z in ZONES:
+                                names = []
+                                for k in range(MAX_SLOTS):
+                                    key = f"{d_str}_{shift}_{z}_{k+1}"
+                                    val = st.session_state.bookings.get(key, "").strip()
+                                    if val:
+                                        names.append(val)
+                                # 如果有名字就顯示，沒有就留空
+                                row[z] = "、".join(names) if names else ""
+                            
+                            overview_data.append(row)
+
+                # 2. 顯示表格 (DataFrame)
+                if overview_data:
+                    df_overview = pd.DataFrame(overview_data)
+                    # 設定 columns 順序
+                    cols = ["日期"] + ZONES
+                    df_overview = df_overview[cols]
+                    
+                    # 使用 st.dataframe 顯示，並啟用寬度自適應
+                    st.dataframe(
+                        df_overview, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        height=400  # 固定高度，內容多時會出現卷軸
+                    )
+                else:
+                    st.info("本月份目前沒有開放日或排班資料。")
+            
+            # ==========================================
+            
             with st.expander("🔍 點此查詢本月個人班表", expanded=False):
                 sc1, sc2 = st.columns([3, 1])
                 with sc1:
@@ -352,7 +375,7 @@ else:
                 # ==========================================
                 # 🛡️ 終極防搶班機制：先抓雲端最新資料進行比對
                 # ==========================================
-                fresh_db = load_data() # 向資料庫要最新鮮的狀態
+                fresh_db = load_data() 
                 changes_count = 0
                 conflicts = []
                 
@@ -362,29 +385,22 @@ else:
                             key = f"{d.strftime('%Y-%m-%d')}_{shift}_{z}_{k+1}"
                             widget_key = f"in_{key}"
                             
-                            # 讀取當前輸入框的值 (new_val) 與使用者當初看到的舊值 (old_val)
                             new_val = st.session_state.get(widget_key, st.session_state.bookings.get(key, ""))
                             old_val = st.session_state.bookings.get(key, "")
                             
                             if new_val != old_val:
-                                # 發現使用者有修改！開始檢查雲端有沒有被別人動過
                                 current_cloud_val = fresh_db.get(key, "")
                                 
                                 if current_cloud_val != old_val:
-                                    # ⚠️ 發生衝突！雲端資料變了，代表被別人先存走了
                                     display_name = current_cloud_val if current_cloud_val.strip() else "被清空"
                                     conflicts.append(f"{shift} {z} (志工{k+1}) 已變成「{display_name}」")
-                                    
-                                    # 把本地記憶強制換成別人存的最新名字
                                     st.session_state.bookings[key] = current_cloud_val
-                                    # 清除輸入框殘留的文字，等一下重整時就會顯示出別人的名字
                                     if widget_key in st.session_state:
                                         del st.session_state[widget_key]
                                 else:
-                                    # ✅ 安全無虞，沒人搶！正式存入資料庫
                                     st.session_state.bookings[key] = new_val
                                     save_data(key, new_val)
-                                    fresh_db[key] = new_val # 同步更新剛抓下來的 fresh_db
+                                    fresh_db[key] = new_val
                                     changes_count += 1
                                 
                 if conflicts:
@@ -394,10 +410,9 @@ else:
                         st.success(f"✅ 您填寫的其餘 {changes_count} 筆排班未發生衝突，已成功為您保留！")
                 elif changes_count > 0:
                     st.success(f"✅ 成功儲存 {changes_count} 筆排班異動！")
-                    st.rerun() # 儲存成功後重新整理畫面
+                    st.rerun() 
                 else:
                     st.info("ℹ️ 檢查完畢，目前沒有修改任何資料喔。")
-                # ==========================================
 
         t1, t2 = st.tabs([f"🌞 {TIME_MAPPING['上午']}", f"🌤️ {TIME_MAPPING['下午']}"])
         
