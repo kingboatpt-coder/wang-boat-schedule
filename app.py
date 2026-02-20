@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import date, datetime, timedelta
 import calendar
 import json
+import io
 
 try:
     import gspread
@@ -136,6 +137,30 @@ button:disabled{background:#e5e5e5!important;color:#bbb!important;opacity:0.6!im
     border-radius:10px!important;height:64px!important;font-size:18px!important;font-weight:600!important;}
 .admin-back-btn button{background:#c8c8c8!important;color:#444!important;border:none!important;
     border-radius:10px!important;height:48px!important;font-size:15px!important;}
+
+/* ── Mini calendar for holiday admin ── */
+.mini-cal-wrap{background:white;border-radius:10px;padding:10px 8px 8px;
+    border:1px solid #ddd;margin-bottom:10px;}
+.mini-cal-month{text-align:center;font-weight:700;font-size:14px;
+    margin-bottom:6px;color:#333;}
+.mini-cal-tbl{width:100%;border-collapse:collapse;table-layout:fixed;}
+.mini-cal-tbl th{font-size:10px;font-weight:600;color:#888;
+    text-align:center;padding:2px 0 4px;}
+.mini-cal-tbl th.mc-sun{color:#cc0000;}
+.mini-cal-tbl td{text-align:center;padding:2px 0;}
+.mc-day{width:30px;height:30px;border-radius:50%;display:inline-flex;
+    align-items:center;justify-content:center;font-size:12px;font-weight:500;margin:auto;}
+.mc-normal{color:#222;background:transparent;}
+.mc-closed-def{background:#e0e0e0;color:#888;}  /* 預設休館（週一、週日） */
+.mc-closed-sp{background:#ef4444;color:white;}  /* 特別設定休館 */
+.mc-open-sp{background:#4ECDC4;color:white;}    /* 特別設定開館（覆蓋週一） */
+.mc-pad{color:#ddd;font-size:12px;}
+
+/* legend */
+.cal-legend{display:flex;flex-wrap:wrap;gap:8px;
+    font-size:11px;margin-bottom:8px;align-items:center;}
+.leg-dot{width:12px;height:12px;border-radius:50%;
+    display:inline-block;margin-right:3px;vertical-align:middle;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -489,7 +514,8 @@ def page_admin_login():
 def page_admin():
     st.markdown('<div class="admin-card"><div class="admin-title">管理員後台</div>', unsafe_allow_html=True)
     for label,dest in [("管理開放月份","admin_months"),("休館設定","admin_holidays"),
-                        ("公告修改","admin_ann"),("區域名稱設定","admin_zones")]:
+                        ("公告修改","admin_ann"),("區域名稱設定","admin_zones"),
+                        ("📥 下載值班表 Excel","admin_export")]:
         st.markdown('<div class="admin-big-btn">', unsafe_allow_html=True)
         if st.button(label, key=f"ab_{dest}", use_container_width=True): nav(dest)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -522,28 +548,160 @@ def page_admin_months():
         save_data("SYS_OPEN_MONTHS",json.dumps(st.session_state.open_months_list)); st.rerun()
     if st.button("← 返回",key="bk_m"): nav("admin")
 
+def render_mini_cal(year, month):
+    """Render a read-only HTML mini-calendar for the holidays admin page."""
+    weeks = get_weeks(year, month)
+    html  = f'<div class="mini-cal-wrap">'
+    html += f'<div class="mini-cal-month">{year}年 {month}月</div>'
+    html += '<table class="mini-cal-tbl"><tr>'
+    for h in ["一","二","三","四","五","六"]:
+        html += f'<th>{h}</th>'
+    html += '<th class="mc-sun">日</th></tr>'
+
+    for _, days in weeks:
+        html += '<tr>'
+        for d in days:
+            if d.month != month:
+                html += '<td><span class="mc-pad">·</span></td>'
+                continue
+            # Determine display class
+            if d in st.session_state.closed_days:
+                cls = "mc-day mc-closed-sp"          # 特別休館（紅）
+            elif d in st.session_state.open_days:
+                cls = "mc-day mc-open-sp"            # 特別開館（青）
+            elif d.weekday() in (0, 6):              # Mon / Sun 預設休館
+                cls = "mc-day mc-closed-def"         # 灰
+            else:
+                cls = "mc-day mc-normal"
+            html += f'<td><span class="{cls}">{d.day}</span></td>'
+        html += '</tr>'
+    html += '</table></div>'
+    return html
+
+
 def page_admin_holidays():
     st.markdown("## 休館設定")
-    st.caption("預設週一休館，可額外設定特別休館/開館日。")
-    di = st.date_input("選擇日期",min_value=date(2025,1,1),key="hol_d")
-    h1,h2=st.columns(2)
-    if h1.button("❌ 設為休館",key="set_cl",type="primary"):
+    st.caption("預設週一及週日休館，可額外設定特別休館/開館日。")
+
+    # ── Legend ──
+    st.markdown(
+        '<div class="cal-legend">'
+        '<span><span class="leg-dot" style="background:#e0e0e0;"></span>預設休館</span>'
+        '<span><span class="leg-dot" style="background:#ef4444;"></span>特別休館</span>'
+        '<span><span class="leg-dot" style="background:#4ECDC4;"></span>特別開館</span>'
+        '<span><span class="leg-dot" style="background:#fff;border:1px solid #ccc;"></span>正常開館</span>'
+        '</div>', unsafe_allow_html=True)
+
+    # ── Mini calendars for each open month ──
+    for y, m in sorted(st.session_state.open_months_list):
+        st.markdown(render_mini_cal(y, m), unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ── Date picker + buttons ──
+    di = st.date_input("選擇日期", min_value=date(2025,1,1), key="hol_d")
+    h1, h2 = st.columns(2)
+    if h1.button("❌ 設為休館", key="set_cl", type="primary"):
         if di in st.session_state.open_days: st.session_state.open_days.remove(di)
         if di not in st.session_state.closed_days: st.session_state.closed_days.append(di)
-        save_data("SYS_CLOSED_DAYS",json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
-        save_data("SYS_OPEN_DAYS",  json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
+        save_data("SYS_CLOSED_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
+        save_data("SYS_OPEN_DAYS",   json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
         st.success("✅ 已設為休館"); st.rerun()
-    if h2.button("🟢 設為開館",key="set_op"):
+    if h2.button("🟢 設為開館", key="set_op"):
         if di in st.session_state.closed_days: st.session_state.closed_days.remove(di)
         if di not in st.session_state.open_days: st.session_state.open_days.append(di)
-        save_data("SYS_CLOSED_DAYS",json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
-        save_data("SYS_OPEN_DAYS",  json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
+        save_data("SYS_CLOSED_DAYS", json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.closed_days]))
+        save_data("SYS_OPEN_DAYS",   json.dumps([d.strftime("%Y-%m-%d") for d in st.session_state.open_days]))
         st.success("✅ 已設為開館"); st.rerun()
+
     if st.session_state.closed_days:
-        st.markdown("**特別休館日：** "+"、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.closed_days)]))
+        st.markdown("**特別休館日：** " + "、".join(
+            [f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.closed_days)]))
     if st.session_state.open_days:
-        st.markdown("**特別開館日：** "+"、".join([f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.open_days)]))
-    if st.button("← 返回",key="bk_h"): nav("admin")
+        st.markdown("**特別開館日：** " + "、".join(
+            [f"{d}(週{WD[d.weekday()]})" for d in sorted(st.session_state.open_days)]))
+
+    if st.button("← 返回", key="bk_h"): nav("admin")
+
+
+def page_admin_export():
+    """Download volunteer schedule as Excel."""
+    st.markdown("## 📥 下載值班表 Excel")
+    st.caption("將開放月份內所有有登記姓名的值班資料匯出為 Excel。")
+
+    zone_names = st.session_state.zone_names
+
+    # Build rows from bookings
+    rows = []
+    bookings = st.session_state.bookings
+
+    for key, val in bookings.items():
+        if key.startswith("SYS_"): continue
+        val = val.strip()
+        if not val: continue
+
+        # key format: YYYY-MM-DD_上午/下午_Z1..Z6_1
+        parts = key.split("_")
+        if len(parts) != 4: continue
+        d_str, shift, z_id, slot = parts
+        if z_id not in INTERNAL_ZONES: continue
+
+        try:
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
+        except:
+            continue
+
+        # Only include dates within open months
+        min_d, max_d = open_bounds()
+        if d_obj < min_d or d_obj > max_d: continue
+
+        z_idx    = INTERNAL_ZONES.index(z_id)
+        z_name   = zone_names[z_idx] if z_idx < len(zone_names) else z_id
+        weekday  = f"週{WD[d_obj.weekday()]}"
+        date_lbl = f"{d_obj.month}/{d_obj.day}({weekday})"
+
+        rows.append({
+            "日期":    d_obj,
+            "日期顯示": date_lbl,
+            "星期":    weekday,
+            "時段":    shift,
+            "區域":    z_name,
+            "姓名":    val,
+            "名額":    slot,
+        })
+
+    if not rows:
+        st.info("目前開放月份內尚無任何值班登記。")
+    else:
+        df = (pd.DataFrame(rows)
+              .sort_values(["日期","時段","區域","名額"])
+              .reset_index(drop=True))
+        df_out = df[["日期顯示","星期","時段","區域","姓名"]].copy()
+        df_out.columns = ["日期","星期","上下午","區域","姓名"]
+
+        # Preview
+        st.dataframe(df_out, use_container_width=True, hide_index=True)
+
+        # Excel download
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df_out.to_excel(writer, index=False, sheet_name="值班表")
+            ws_xl = writer.sheets["值班表"]
+            # Auto-width columns
+            for col in ws_xl.columns:
+                max_len = max(len(str(cell.value or "")) for cell in col)
+                ws_xl.column_dimensions[col[0].column_letter].width = max_len + 4
+        buf.seek(0)
+
+        st.download_button(
+            label="⬇️ 下載 Excel",
+            data=buf,
+            file_name=f"志工值班表_{date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
+    if st.button("← 返回", key="bk_ex"): nav("admin")
 
 def page_admin_ann():
     st.markdown("## 公告修改")
@@ -575,4 +733,5 @@ def page_admin_zones():
     "admin_holidays": page_admin_holidays,
     "admin_ann":      page_admin_ann,
     "admin_zones":    page_admin_zones,
+    "admin_export":   page_admin_export,
 }.get(st.session_state.get("page","calendar"), page_calendar)()
