@@ -10,10 +10,13 @@ import json
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
 
 # ==========================================
-# 🌟 [終極 CSS 魔法] 使用 Grid 網格系統，保證絕對不爆框！
+# 🌟 [終極 CSS 魔法] 
+# 1. 使用 Grid 網格系統，保證按鈕不爆框
+# 2. 隱藏 dataframe 的工具列 (拿掉小眼睛、下載、搜尋圖示)
 # ==========================================
 st.markdown("""
 <style>
+/* 手機版排班格子優化 */
 @media (max-width: 576px) {
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
         display: grid !important;
@@ -50,6 +53,11 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) div[style*="font-weight:bold"] {
         font-size: 11px !important;
     }
+}
+
+/* 🌟 隱藏 st.dataframe 的工具列 (拿掉小眼睛、搜尋、下載按鈕) */
+[data-testid="stElementToolbar"] {
+    display: none;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -239,34 +247,28 @@ else:
     def render_cal(year, month, ctr):
         with ctr:
             # ==========================================
-            # 📊 新增：本月排班總覽 (找空班專用) - 完全公開
+            # 📊 本月排班總覽 - 手機最佳化版 (直向列表)
             # ==========================================
             with st.expander("📊 點此展開本月總覽表 (找空班專用)", expanded=False):
-                st.caption("💡 空白的格子代表還有缺額，可以直接點擊下方的日期去搶班喔！")
+                st.caption("💡 表格已優化為清單格式，手機閱讀更清晰。空白代表還有缺額！")
                 
-                # 1. 準備表格資料
+                # 1. 準備直向資料 (Date-Oriented)
                 overview_data = []
-                # 取得當月所有天數
                 num_days = calendar.monthrange(year, month)[1]
                 
                 for day in range(1, num_days + 1):
                     d_obj = date(year, month, day)
                     
-                    # 判斷是否休館
                     status = "open"
                     if d_obj in st.session_state.closed_days: status = "closed"
                     elif d_obj in st.session_state.open_days: status = "open"
-                    elif d_obj.weekday() == 0: status = "closed" # 週一固定休
+                    elif d_obj.weekday() == 0: status = "closed" 
                     
                     if status == "open":
                         d_str = d_obj.strftime('%Y-%m-%d')
                         
-                        # 每一天有上午、下午兩列
                         for shift in ["上午", "下午"]:
-                            row = {
-                                "日期": f"{d_str} ({shift})",
-                            }
-                            # 填入各區域的志工名字
+                            # 每一行代表一個點位，而不是一整排
                             for z in ZONES:
                                 names = []
                                 for k in range(MAX_SLOTS):
@@ -274,24 +276,37 @@ else:
                                     val = st.session_state.bookings.get(key, "").strip()
                                     if val:
                                         names.append(val)
-                                # 如果有名字就顯示，沒有就留空
-                                row[z] = "、".join(names) if names else ""
-                            
-                            overview_data.append(row)
+                                
+                                # 這裡決定要顯示什麼：
+                                # 如果有名字 -> 顯示名字
+                                # 如果沒名字 -> 顯示 "🈳 (可排班)" 讓志工容易找
+                                display_status = "、".join(names) if names else "🈳 (可排班)"
+                                
+                                overview_data.append({
+                                    "日期": d_str,
+                                    "時段": shift,
+                                    "區域": z,
+                                    "現有志工": display_status
+                                })
 
                 # 2. 顯示表格 (DataFrame)
                 if overview_data:
                     df_overview = pd.DataFrame(overview_data)
-                    # 設定 columns 順序
-                    cols = ["日期"] + ZONES
-                    df_overview = df_overview[cols]
                     
-                    # 使用 st.dataframe 顯示，並啟用寬度自適應
+                    # 這是最關鍵的一步：我們把表格變長了，但變窄了！
+                    # 手機上會看到：日期 | 時段 | 區域 | 志工
+                    # 這樣絕對不會有 ,,,,, 的問題
                     st.dataframe(
                         df_overview, 
                         use_container_width=True, 
                         hide_index=True,
-                        height=400  # 固定高度，內容多時會出現卷軸
+                        height=400,
+                        column_config={
+                            "日期": st.column_config.TextColumn("日期", width="small"),
+                            "時段": st.column_config.TextColumn("時段", width="small"),
+                            "區域": st.column_config.TextColumn("區域", width="medium"),
+                            "現有志工": st.column_config.TextColumn("志工名單", width="large")
+                        }
                     )
                 else:
                     st.info("本月份目前沒有開放日或排班資料。")
