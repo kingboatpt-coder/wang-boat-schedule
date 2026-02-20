@@ -17,54 +17,54 @@ except ImportError:
 st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide")
 
 # ─────────────────────────────────────────
-#  GLOBAL CSS (終極修正：使用 vw 單位強制鎖定寬度)
+#  GLOBAL CSS (終極強制版)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-/* 1. 基本設定：隱藏不必要的元件 */
+/* 1. 隱藏預設干擾元件 */
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stToolbar"], [data-testid="stDecoration"], section[data-testid="stSidebar"] { display: none !important; }
 
-/* 2. 版面歸零：移除所有預設邊距 */
+/* 2. 版面歸零：讓手機版可以使用 100% 寬度 */
 .stApp { background-color: #e8e3d8 !important; }
 .block-container {
     padding-top: 10px !important;
     padding-bottom: 30px !important;
-    padding-left: 0px !important;
-    padding-right: 0px !important;
+    padding-left: 4px !important;  /* 極小邊距 */
+    padding-right: 4px !important; /* 極小邊距 */
     max-width: 100% !important;
 }
 
-/* ⭐⭐⭐ 核心修正：使用視窗單位 (vw) 強制鎖定寬度 ⭐⭐⭐ */
+/* ⭐⭐⭐ 核心修正：核彈級 CSS 覆寫 ⭐⭐⭐ */
 
-/* 強制橫排容器 */
+/* 強制 st.columns 的容器 (HorizontalBlock) 永遠保持橫向，禁止換行 */
 div[data-testid="stHorizontalBlock"] {
     display: flex !important;
-    flex-wrap: nowrap !important; /* 禁止換行 */
-    width: 100% !important;
-    gap: 0px !important;          /* 移除間距 */
-    justify-content: center !important; /* 居中 */
+    flex-direction: row !important;
+    flex-wrap: nowrap !important; /* 👈 關鍵：絕對禁止換行 */
+    align-items: center !important;
+    gap: 2px !important; /* 格子間的微小縫隙 */
 }
 
-/* 強制每個欄位寬度為螢幕的 1/7 (約 14.28%，我們設 13.8% 預留緩衝) */
+/* 強制每個 Column (格子) 均分寬度，並允許縮到比內容還小 */
 div[data-testid="column"] {
-    flex: 0 0 2.8vw !important; /* 關鍵：鎖定彈性寬度 */
-    width: 3.8vw !important;    /* 關鍵：鎖定絕對寬度 */
-    min-width: 0px !important;   /* 允許縮到極小 */
-    padding: 1px !important;     /* 極小間距 */
+    flex: 1 1 0px !important; /* 👈 關鍵：大家平分空間 */
+    width: auto !important;
+    min-width: 0px !important; /* 👈 關鍵：打破 Streamlit 的最小寬度限制 */
+    padding: 0 !important;
     margin: 0 !important;
-    overflow: hidden !important; /* 防止溢出 */
+    overflow: hidden !important;
 }
 
-/* 按鈕樣式：強制適應欄位大小 */
+/* 強制按鈕適應這個被壓縮的格子 */
 div[data-testid="stButton"] {
     width: 100% !important;
 }
 
 div[data-testid="stButton"] button {
     width: 100% !important;
-    min-width: 0px !important;
-    padding: 0px !important;
+    min-width: 0px !important; /* 👈 關鍵：按鈕允許縮到無限小 */
+    padding: 0px !important;   /* 移除內距 */
     margin: 0px !important;
     border-radius: 4px !important;
     border: 1px solid #ccc !important;
@@ -72,44 +72,31 @@ div[data-testid="stButton"] button {
     align-items: center;
     justify-content: center;
     line-height: 1 !important;
-    aspect-ratio: 1 / 1 !important; /* 讓按鈕接近正方形，好看 */
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important; /* 👈 讓按鈕保持正方形，才像日曆 */
 }
 
-/* 3. 手機版特定調整 (Max Width 600px) */
+/* 3. 手機版特定調整 (螢幕 < 600px) */
 @media (max-width: 600px) {
-    /* 字體縮小 */
+    /* 字體縮小，確保數字顯示得出來 */
     div[data-testid="stButton"] button {
         font-size: 14px !important;
-        font-weight: 50 !important;
-        height: auto !important; /* 讓 aspect-ratio 控制高度 */
+        font-weight: 600 !important;
     }
-    /* 星期標題 */
+    
+    div[data-testid="stButton"] button p {
+        font-size: 14px !important; /* 強制 Streamlit 內層文字大小 */
+    }
+
+    /* 星期標題縮小 */
     .day-header {
-        font-size: 12px !important;
+        font-size: 11px !important;
         margin-bottom: 2px !important;
     }
-    /* 導航列 */
+    
+    /* 導航列文字 */
     .nav-label {
         font-size: 18px !important;
-    }
-    /* 讓內容稍微往中間縮一點點，避免貼齊螢幕邊緣太難看 */
-    div[data-testid="stHorizontalBlock"] {
-        padding-left: 1vw !important;
-        padding-right: 1vw !important;
-    }
-}
-
-/* 電腦版調整 */
-@media (min-width: 601px) {
-    .block-container { max-width: 500px !important; padding: 20px !important; }
-    div[data-testid="column"] {
-        flex: 1 !important;
-        width: auto !important;
-    }
-    div[data-testid="stButton"] button {
-        height: 50px !important;
-        font-size: 16px !important;
-        aspect-ratio: auto !important;
     }
 }
 
@@ -123,7 +110,6 @@ div[data-testid="stButton"] button {
     font-size: 20px; font-weight: 700; text-align: center; color: #333; white-space: nowrap;
 }
 
-/* 休館日按鈕 */
 button:disabled {
     background-color: #e5e5e5 !important;
     color: #bbb !important;
@@ -132,36 +118,36 @@ button:disabled {
     cursor: not-allowed !important;
 }
 
-/* 選中按鈕 */
 button[kind="primary"] {
     background-color: #ef4444 !important;
     color: white !important;
     border: none !important;
 }
 
-/* 進入排班按鈕 */
-.enter-btn-wrap button {
+/* 進入排班按鈕 (這個不需要正方形，所以單獨設定) */
+.enter-btn-wrap div[data-testid="stButton"] button {
+    aspect-ratio: auto !important; /* 取消正方形限制 */
+    height: 45px !important;
     background-color: white !important;
     color: #333 !important;
     border: 1.5px solid #333 !important;
     margin-top: 15px !important;
-    height: 45px !important;
     width: 100% !important;
 }
 
-.ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 15px 5px; }
+.ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 15px 0; }
 .ann-title { border-bottom: 1.5px solid #333; padding: 8px; font-weight: 700; text-align: center; }
 .ann-body { padding: 12px; font-size: 14px; color: #333; line-height: 1.6; }
 
-.wk-title { font-size: 20px; font-weight: 700; margin: 10px 5px; }
-.wk-wrap { overflow-x: auto; margin: 5px; }
+/* Grid View (Table) */
+.wk-wrap { overflow-x: auto; margin: 5px 0; }
 .wk-tbl { border-collapse: collapse; width: 100%; font-size: 11px; }
 .wk-tbl th, .wk-tbl td { border: 1px solid #333; padding: 4px 2px; text-align: center; }
 .wk-filled-cell { background: #FFD700; }
 .wk-empty-cell { background: #FFE033; height: 20px; }
-.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 6px 5px; }
-.bot-join { background: #4ECDC4; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; color: #111; margin: 0 5px; }
-.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; }
+.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 6px 0; }
+.bot-join { background: #4ECDC4; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; color: #111; }
+.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; aspect-ratio: auto !important; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -287,7 +273,8 @@ def page_calendar():
     weeks = get_weeks(year, month)
     sel_start = st.session_state.sel_week_start
 
-    # ── Month Navigation (Aligned) ──
+    # ── Month Navigation (使用 columns 來排列： [ < ] [ Month Year ] [ > ]) ──
+    # 注意：這裡也會受到上面的 Global CSS 影響，所以它們會自動變成橫排
     c_nav = st.container()
     c1, c2, c3 = c_nav.columns([1, 4, 1])
     
@@ -322,7 +309,7 @@ def page_calendar():
         
         for i, d in enumerate(days):
             with dcols[i]:
-                # 1. 隱藏非本月 (但保留空白格，否則排版會亂)
+                # 1. 非本月日期：不顯示內容，佔位
                 if d.month != month:
                     st.empty() 
                 else:
