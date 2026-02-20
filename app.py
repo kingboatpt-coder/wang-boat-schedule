@@ -17,7 +17,7 @@ except ImportError:
 st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide")
 
 # ─────────────────────────────────────────
-#  GLOBAL CSS (核心修改：強制手機版維持網格佈局)
+#  GLOBAL CSS (核心修改：手機版強制縮放)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -30,10 +30,14 @@ section[data-testid="stSidebar"] { display: none !important; }
 
 /* ── Page layout ─── */
 .stApp { background-color: #e8e3d8 !important; }
+
+/* ⭐ 關鍵修改 1：極大化容器寬度，消除預設 Padding */
 .block-container {
-    padding: 20px 10px 60px 10px !important;
-    max-width: 600px !important; /* 稍微放寬以容納電腦版樣式 */
-    margin: 0 auto !important;
+    padding-top: 20px !important;
+    padding-bottom: 60px !important;
+    padding-left: 5px !important;  /* 手機版極窄邊距 */
+    padding-right: 5px !important; /* 手機版極窄邊距 */
+    max-width: 100% !important;
 }
 
 /* ── Font ─── */
@@ -41,44 +45,55 @@ html, body, [class*="css"] {
     font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Helvetica Neue", sans-serif;
 }
 
-/* ⭐⭐⭐ 核心修改：強制手機版 Columns 不換行 ⭐⭐⭐ 
-   Streamlit 預設手機會把 columns 變成直排，這裡強制改回橫排 
-*/
+/* ⭐ 關鍵修改 2：強制 Columns 等寬且不換行 */
 div[data-testid="column"] {
-    min-width: 0px !important; /* 允許縮到非常小 */
-    flex: 1 1 0px !important;  /* 平均分配寬度 */
-    padding: 0 1px !important; /* 減少欄位間距 */
+    min-width: 0 !important;      /* 允許縮到最小 */
+    flex: 1 1 0px !important;     /* 強制平均分配寬度 */
+    padding: 0 1px !important;    /* 欄位間距縮到最小 */
+    overflow: hidden !important;  /* 防止溢出 */
 }
 
-div[data-testid="stHorizontalBlock"] {
-    gap: 2px !important; /* 減少元件間距 */
-}
-
-/* 針對按鈕的優化 */
+/* ⭐ 關鍵修改 3：按鈕樣式優化 (手機版字體縮小) */
 div[data-testid="stButton"] button {
-    padding: 0px !important;
     width: 100% !important;
-    min-height: 45px !important; /* 電腦版高度 */
-    height: 45px !important;
+    padding: 0px !important;      /* 移除內部 Padding */
     border-radius: 6px !important;
-    font-weight: 500 !important;
+    border: 1px solid #d0d0d0 !important;
+    font-weight: 600 !important;
     box-shadow: none !important;
-    border: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* 手機版特定調整 (螢幕小於 640px) */
-@media (max-width: 640px) {
-    div[data-testid="stHorizontalBlock"] {
-        flex-direction: row !important; /* 強制橫向 */
-        flex-wrap: nowrap !important;
+/* 手機版特定 CSS (螢幕小於 480px) */
+@media (max-width: 480px) {
+    /* 按鈕變矮、字變小 */
+    div[data-testid="stButton"] button {
+        height: 38px !important;
+        font-size: 14px !important; 
+    }
+    /* 星期標頭字變小 */
+    .day-header {
+        font-size: 11px !important;
+    }
+    /* 導航列字變小 */
+    .nav-label {
+        font-size: 18px !important;
+    }
+}
+
+/* 電腦版/平板 CSS (螢幕大於 480px) */
+@media (min-width: 481px) {
+    .block-container {
+        max-width: 600px !important; /* 電腦版限制最大寬度，比較好看 */
+        padding-left: 20px !important;
+        padding-right: 20px !important;
     }
     div[data-testid="stButton"] button {
-        min-height: 40px !important; /* 手機版按鈕稍微矮一點 */
-        height: 40px !important;
-        font-size: 14px !important;  /* 字體縮小以免被切掉 */
+        height: 48px !important;
+        font-size: 16px !important;
     }
-    /* 導航列字體縮小 */
-    .nav-label { font-size: 18px !important; min-width: 120px !important; }
 }
 
 /* ── Calendar Styles ─── */
@@ -87,72 +102,58 @@ div[data-testid="stButton"] button {
     font-size: 13px;
     font-weight: 700;
     color: #666;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
 .day-header.sunday { color: #cc0000; }
 
-/* Month Navigation styling */
-.nav-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 15px;
-}
+/* Navigation Row */
 .nav-label {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
     text-align: center;
     color: #333;
-    padding: 0 10px;
-    white-space: nowrap;
+    padding: 0 5px;
+    white-space: nowrap; /* 防止換行 */
 }
 
 /* Disabled button styling (休館日) */
 button:disabled {
-    background-color: #e8e8e8 !important;
+    background-color: #e0e0e0 !important;
     color: #bbb !important;
-    border: none !important;
+    border: 1px solid #ccc !important;
     cursor: not-allowed !important;
-    opacity: 0.6 !important;
+    opacity: 0.7 !important;
 }
 
-/* Selected button styling (Primary) */
+/* Selected button styling */
 button[kind="primary"] {
-    background-color: #ef4444 !important; /* 紅色 */
+    background-color: #ef4444 !important;
     color: white !important;
     border: none !important;
 }
 
-/* ── Enter Button ─── */
+/* Enter Button */
 .enter-btn-wrap button {
-    background-color: #fff !important;
+    background-color: white !important;
     color: #333 !important;
-    border: 1px solid #ccc !important;
     font-size: 16px !important;
-    font-weight: 500 !important;
-    height: 48px !important;
-    border-radius: 8px !important;
+    height: 50px !important;
     margin-top: 20px !important;
 }
 
-/* ── Admin & Other UI ─── */
-.ann-box {
-    background: white; border: 2px solid #333; border-radius: 6px;
-    margin-top: 16px; margin-bottom: 14px;
-}
-.ann-title { border-bottom: 1.5px solid #333; padding: 9px 16px; font-weight: 700; text-align: center; }
-.ann-body { padding: 14px 16px; min-height: 60px; font-size: 14px; white-space: pre-wrap; line-height: 1.7; color: #333; }
-
-/* Grid table styles */
+/* Admin & Grid styles */
+.ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 16px 0; }
+.ann-title { border-bottom: 1.5px solid #333; padding: 8px; font-weight: 700; text-align: center; }
+.ann-body { padding: 12px; min-height: 60px; font-size: 14px; white-space: pre-wrap; line-height: 1.6; color: #333; }
 .wk-wrap { overflow-x: auto; margin: 8px 0; }
 .wk-tbl { border-collapse: collapse; font-size: 10px; width: 100%; }
-.wk-tbl th, .wk-tbl td { border: 1.5px solid #333; padding: 2px 1px; text-align: center; vertical-align: middle; }
-.wk-date-cell { background: #f5f5f5; font-size: 10px; line-height: 1.3; }
-.wk-filled-cell { background: #FFD700; font-size: 9px; }
+.wk-tbl th, .wk-tbl td { border: 1.5px solid #333; padding: 2px 1px; text-align: center; }
+.wk-date-cell { background: #f5f5f5; line-height: 1.3; }
+.wk-filled-cell { background: #FFD700; }
 .wk-empty-cell { background: #FFE033; height: 16px; }
-.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px 12px; margin: 6px 0; }
-.bot-join { background: #4ECDC4; border-radius: 10px; padding: 14px 10px; text-align: center; font-weight: 600; color: #111; }
-.admin-access-wrap button { background: transparent !important; color: #999 !important; border: none !important; font-size: 12px !important; }
+.edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 6px 0; }
+.bot-join { background: #4ECDC4; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; color: #111; }
+.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -168,7 +169,7 @@ MON_EN = ["","January","February","March","April","May","June",
            "July","August","September","October","November","December"]
 
 # ─────────────────────────────────────────
-#  GOOGLE SHEETS & DATA
+#  GOOGLE SHEETS
 # ─────────────────────────────────────────
 @st.cache_resource
 def init_connection():
@@ -248,7 +249,7 @@ def nav(page):
     st.rerun()
 
 def get_week_start(d: date) -> date:
-    return d - timedelta(days=d.weekday()) # Monday
+    return d - timedelta(days=d.weekday())
 
 def get_weeks(year, month):
     first = date(year, month, 1)
@@ -270,17 +271,15 @@ def page_calendar():
     st.markdown("## 志工排班表")
 
     if not months:
-        st.warning("⚠️ 暫無開放月份，請管理員設定。")
+        st.warning("⚠️ 暫無開放月份")
         _admin_btn(); return
 
     idx = min(st.session_state.month_idx, len(months)-1)
     year, month = months[idx]
     weeks = get_weeks(year, month)
-    
     sel_start = st.session_state.sel_week_start
 
     # ── Month Navigation (Aligned Row) ──
-    # 使用 columns 排列：[<] [Month Year] [>]
     c_nav = st.container()
     col_l, col_m, col_r = c_nav.columns([1.5, 5, 1.5])
     
@@ -301,39 +300,34 @@ def page_calendar():
 
     st.write("") # Spacer
 
-    # ── Calendar Header (Mon-Sun) ──
+    # ── Header ──
     hcols = st.columns(7)
     days_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     for i, label in enumerate(days_labels):
         cls = "day-header sunday" if i == 6 else "day-header"
         hcols[i].markdown(f'<div class="{cls}">{label}</div>', unsafe_allow_html=True)
 
-    # ── Calendar Days Grid ──
+    # ── Days Grid ──
     for ws, days in weeks:
         is_selected = (sel_start == ws)
-        # 如果是選取狀態，所有按鈕變成 Primary (紅色)，否則 Secondary (白色/灰色)
         btn_type = "primary" if is_selected else "secondary"
         
         dcols = st.columns(7)
         for i, d in enumerate(days):
             with dcols[i]:
-                # 1. 檢查是否為當月
+                # 1. Hide non-month days
                 if d.month != month:
-                    # 如果不是當月，顯示空白，保持版面整齊但不顯示按鈕
-                    st.empty()
+                    st.markdown("", unsafe_allow_html=True) # Placeholder
                 else:
-                    # 2. 檢查是否休館
+                    # 2. Check Closed
                     is_closed = not is_open(d)
                     label = str(d.day)
                     
-                    # 點擊按鈕：選擇該週 (ws)
-                    # disabled=is_closed (如果是休館日，按鈕失效)
                     if st.button(label, key=f"btn_{d}", type=btn_type, disabled=is_closed, use_container_width=True):
                         st.session_state.sel_week_start = ws
                         st.rerun()
 
     # ── Enter Scheduling Button ──
-    # 只有當選擇了某一週時才出現
     if sel_start:
         w_end = sel_start + timedelta(days=6)
         lbl = f"進入排班 ({sel_start.month}/{sel_start.day} ～ {w_end.month}/{w_end.day})"
@@ -361,7 +355,7 @@ def _admin_btn():
 
 
 # ─────────────────────────────────────────
-#  PAGE: WEEK GRID (排班表)
+#  PAGE: WEEK GRID
 # ─────────────────────────────────────────
 def page_week_grid():
     ws = st.session_state.get("sel_week_start") 
