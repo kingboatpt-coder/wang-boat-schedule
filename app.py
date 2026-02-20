@@ -10,12 +10,13 @@ import json
 st.set_page_config(page_title="王船文化館排班系統", page_icon="🚢", layout="wide")
 
 # ==========================================
-# 🌟 [CSS 優化] 
-# 1. 網格系統防止爆框
-# 2. 隱藏表格工具列 (小眼睛、搜尋等)
+# 🌟 [終極 CSS 魔法] 
+# 1. 使用 Grid 網格系統，保證按鈕不爆框
+# 2. 隱藏 dataframe 的工具列 (拿掉小眼睛、下載、搜尋圖示)
 # ==========================================
 st.markdown("""
 <style>
+/* 手機版排班格子優化 */
 @media (max-width: 576px) {
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
         display: grid !important;
@@ -53,9 +54,14 @@ st.markdown("""
         font-size: 11px !important;
     }
 }
-[data-testid="stElementToolbar"] { display: none; }
+
+/* 🌟 隱藏 st.dataframe 的工具列 (拿掉小眼睛、搜尋、下載按鈕) */
+[data-testid="stElementToolbar"] {
+    display: none;
+}
 </style>
 """, unsafe_allow_html=True)
+# ==========================================
 
 # --- 2. 連接 Google Sheets 資料庫 ---
 @st.cache_resource
@@ -98,13 +104,16 @@ def save_data(key, value):
     except Exception as e:
         st.error(f"❌ 存檔失敗: {e}")
 
-# --- 3. 初始化參數 ---
+# --- 3. 初始化參數與從雲端讀取系統設定 ---
 ZONES = ["1F-沉浸室劇場", "1F-手扶梯驗票", "2F展區、特展", "3F-展區", "4F-展區", "5F-閱讀區"]
-ADMIN_PASSWORD = "1234"
+ADMIN_PASSWORD = "1234"  # ⚠️ 記得把這裡改成您自己的專屬密碼！
 MAX_SLOTS = 2
-TIME_MAPPING = {"上午": "上午(09:00-12:00)", "下午": "下午(14:00-17:00)"}
-# 🌟 星期對照表
-WEEKDAY_MAP = {0: "一", 1: "二", 2: "三", 3: "四", 4: "五", 5: "六", 6: "日"}
+
+# 時間顯示對照表 (網頁顯示用)
+TIME_MAPPING = {
+    "上午": "上午(09:00-12:00)",
+    "下午": "下午(14:00-17:00)"
+}
 
 if 'bookings' not in st.session_state:
     raw_data = load_data()
@@ -145,7 +154,6 @@ with st.sidebar:
         new_data = load_data()
         st.session_state.bookings = new_data
         
-        # 同步系統設定
         if "SYS_OPEN_MONTHS" in new_data:
             try: st.session_state.open_months_list = [(m[0], m[1]) for m in json.loads(new_data["SYS_OPEN_MONTHS"])]
             except: pass
@@ -239,12 +247,12 @@ else:
     def render_cal(year, month, ctr):
         with ctr:
             # ==========================================
-            # 📊 本月排班總覽 & 下載 (完全公開)
+            # 📊 本月排班總覽 - 手機最佳化版 (直向列表)
             # ==========================================
-            with st.expander("📊 點此展開本月總覽表 / 下載 Excel", expanded=False):
-                st.caption("💡 空白的格子代表還有缺額，可直接點擊下方日期搶班。")
+            with st.expander("📊 點此展開本月總覽表 (找空班專用)", expanded=False):
+                st.caption("💡 表格已優化為清單格式，手機閱讀更清晰。空白代表還有缺額！")
                 
-                # 1. 準備清單資料 (Date-Oriented)
+                # 1. 準備直向資料 (Date-Oriented)
                 overview_data = []
                 num_days = calendar.monthrange(year, month)[1]
                 
@@ -258,10 +266,9 @@ else:
                     
                     if status == "open":
                         d_str = d_obj.strftime('%Y-%m-%d')
-                        # 🌟 關鍵格式：日期 + (星期幾)
-                        d_display = f"{d_str} ({WEEKDAY_MAP[d_obj.weekday()]})"
                         
                         for shift in ["上午", "下午"]:
+                            # 每一行代表一個點位，而不是一整排
                             for z in ZONES:
                                 names = []
                                 for k in range(MAX_SLOTS):
@@ -270,41 +277,36 @@ else:
                                     if val:
                                         names.append(val)
                                 
+                                # 這裡決定要顯示什麼：
+                                # 如果有名字 -> 顯示名字
+                                # 如果沒名字 -> 顯示 "🈳 (可排班)" 讓志工容易找
                                 display_status = "、".join(names) if names else "🈳 (可排班)"
                                 
                                 overview_data.append({
-                                    "日期": d_display, # 這裡已經包含星期了！
+                                    "日期": d_str,
                                     "時段": shift,
                                     "區域": z,
-                                    "志工": display_status
+                                    "現有志工": display_status
                                 })
 
-                # 2. 顯示表格 & 提供下載
+                # 2. 顯示表格 (DataFrame)
                 if overview_data:
                     df_overview = pd.DataFrame(overview_data)
                     
-                    # 顯示預覽 (手機好讀版)
+                    # 這是最關鍵的一步：我們把表格變長了，但變窄了！
+                    # 手機上會看到：日期 | 時段 | 區域 | 志工
+                    # 這樣絕對不會有 ,,,,, 的問題
                     st.dataframe(
                         df_overview, 
                         use_container_width=True, 
                         hide_index=True,
                         height=400,
                         column_config={
-                            "日期": st.column_config.TextColumn("日期", width="medium"),
+                            "日期": st.column_config.TextColumn("日期", width="small"),
                             "時段": st.column_config.TextColumn("時段", width="small"),
                             "區域": st.column_config.TextColumn("區域", width="medium"),
-                            "志工": st.column_config.TextColumn("名單", width="large")
+                            "現有志工": st.column_config.TextColumn("志工名單", width="large")
                         }
-                    )
-                    
-                    # 📥 下載按鈕 (移到這裡，所有人可用)
-                    csv_bytes = df_overview.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button(
-                        label=f"📥 下載 {year}年{month}月 排班表 (Excel)",
-                        data=csv_bytes,
-                        file_name=f"王船文化館排班表_{year}_{month:02d}.csv",
-                        mime="text/csv",
-                        type="primary"
                     )
                 else:
                     st.info("本月份目前沒有開放日或排班資料。")
@@ -338,11 +340,8 @@ else:
                             df_search = pd.DataFrame(found_shifts).sort_values(by=["日期", "時段", "區域"])
                             
                             for _, row in df_search.iterrows():
-                                # 這裡也要幫搜尋結果加上星期
-                                d_obj_search = datetime.strptime(row['日期'], '%Y-%m-%d').date()
-                                d_display_search = f"{row['日期']} ({WEEKDAY_MAP[d_obj_search.weekday()]})"
                                 display_time = TIME_MAPPING.get(row['時段'], row['時段'])
-                                st.markdown(f"- 📅 **{d_display_search}** ({display_time}) 📍 {row['區域']}")
+                                st.markdown(f"- 📅 **{row['日期']}** ({display_time}) 📍 {row['區域']}")
                         else:
                             st.warning(f"本月沒有找到「{search_name}」的排班記錄喔！")
                     else:
@@ -382,14 +381,14 @@ else:
         
         col_title, col_btn = st.columns([2, 1])
         with col_title:
-            st.subheader(f"✍️ {d.strftime('%Y-%m-%d')} ({WEEKDAY_MAP[d.weekday()]}) 排班表")
+            st.subheader(f"✍️ {d.strftime('%Y-%m-%d')} 排班表")
             st.caption("輸入完畢後，請點擊右方按鈕統一儲存 👉")
             
         with col_btn:
             st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
             if st.button("💾 儲存本日所有排班", type="primary", use_container_width=True):
                 # ==========================================
-                # 🛡️ 終極防搶班機制
+                # 🛡️ 終極防搶班機制：先抓雲端最新資料進行比對
                 # ==========================================
                 fresh_db = load_data() 
                 changes_count = 0
