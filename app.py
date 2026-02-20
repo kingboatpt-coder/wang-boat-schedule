@@ -17,94 +17,96 @@ except ImportError:
 st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide")
 
 # ─────────────────────────────────────────
-#  GLOBAL CSS (針對手機直立的極限縮微修正)
+#  GLOBAL CSS (CSS Grid 終極修正版)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-/* 1. 基礎清理 */
+/* 1. 隱藏干擾元件 */
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stToolbar"], [data-testid="stDecoration"], section[data-testid="stSidebar"] { display: none !important; }
 
-/* 2. 背景與主容器：極限貼邊 */
+/* 2. 背景與主容器設定 */
 .stApp { background-color: #e8e3d8 !important; }
+
+/* ⭐⭐⭐ 修正 1：鎖定容器最大寬度，電腦版不再變巨型 ⭐⭐⭐ */
 .block-container {
     padding-top: 10px !important;
     padding-bottom: 20px !important;
-    padding-left: 2px !important;  /* 極限貼邊 */
-    padding-right: 2px !important; /* 極限貼邊 */
-    max-width: 100% !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    
+    /* 這裡鎖死寬度，電腦上看也會是漂亮的手機比例 */
+    max-width: 500px !important; 
+    margin: 0 auto !important;
 }
 
-/* ⭐⭐⭐ 手機版 (直立) 極限修正區 (Max Width 480px) ⭐⭐⭐ */
-@media (max-width: 480px) {
+/* ⭐⭐⭐ 修正 2：使用 CSS Grid 強制 7 等分，絕對不換行 ⭐⭐⭐ */
+
+/* 針對日曆區域的水平容器 */
+div[data-testid="stHorizontalBlock"] {
+    display: grid !important;
+    grid-template-columns: repeat(7, 1fr) !important; /* 強制切成 7 等份 */
+    gap: 2px !important;
+    width: 100% !important;
+    margin: 0 !important;
+}
+
+/* 強制每個格子 (Column) 的行為 */
+div[data-testid="column"] {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: auto !important;
+    min-width: 0px !important; /* 👈 關鍵：允許縮到無限小 */
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+/* 3. 按鈕樣式 (微縮工程) */
+div[data-testid="stButton"] {
+    width: 100% !important;
+}
+
+div[data-testid="stButton"] button {
+    width: 100% !important;
+    min-width: 0px !important;    /* 移除最小寬度限制 */
+    padding: 0px !important;      /* 移除內距 */
+    margin: 0px !important;
+    border-radius: 4px !important;
+    border: 1px solid #ccc !important;
     
-    /* 強制橫排容器：絕對禁止換行，間距歸零 */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 0px !important;
-        width: 100% !important;
-    }
+    /* 讓按鈕內容居中 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* 強制高度與正方形 */
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important; 
+    line-height: 1 !important;
+    
+    /* 字體設定：根據寬度自動調整的感覺，但我們寫死小一點 */
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
 
-    /* 強制欄位寬度：鎖死 1/7 */
-    div[data-testid="column"] {
-        flex: 0 0 14.28% !important;
-        width: 14.28% !important;
-        min-width: 0px !important;
-        padding: 1px !important; /* 留1px縫隙避免黏在一起太醜 */
-        margin: 0 !important;
-        overflow: hidden !important;
-    }
-
-    /* 按鈕樣式：微縮 */
+/* 4. 強制縮小手機版字體 (螢幕 < 400px 時) */
+@media (max-width: 400px) {
     div[data-testid="stButton"] button {
-        width: 100% !important;
-        min-width: 0px !important;
-        height: 36px !important;      /* 手機版高度縮小 */
-        padding: 0px !important;      /* 內距歸零 */
-        margin: 0px !important;
-        font-size: 12px !important;   /* 字體縮小，這是關鍵 */
-        border-radius: 4px !important;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        line-height: 1 !important;
+        font-size: 12px !important; /* 字體再縮小，防止撐開 */
     }
-    
-    /* 強制內部文字縮小 */
     div[data-testid="stButton"] button p {
         font-size: 12px !important;
-        font-weight: 700 !important;
     }
-
-    /* 星期標頭縮小 */
     .day-header {
-        font-size: 10px !important;
-        margin-bottom: 2px !important;
-    }
-    
-    /* 導航列字體 */
-    .nav-label { font-size: 18px !important; }
-}
-
-/* ⭐⭐⭐ 電腦/平板版 (Min Width 481px) ⭐⭐⭐ */
-@media (min-width: 481px) {
-    .block-container { 
-        max-width: 500px !important; 
-        padding: 20px !important; 
-        margin: 0 auto !important;
-    }
-    div[data-testid="stHorizontalBlock"] { gap: 4px !important; }
-    div[data-testid="stButton"] button { 
-        height: 48px !important; 
-        font-size: 16px !important; 
+        font-size: 11px !important;
     }
 }
 
-/* 3. 通用樣式 */
+/* 5. 其他 UI 美化 */
 .day-header {
-    text-align: center; font-weight: 700; color: #666; margin-bottom: 4px;
+    text-align: center; font-size: 13px; font-weight: 700; color: #666; margin-bottom: 4px;
 }
 .day-header.sunday { color: #cc0000; }
 
@@ -114,27 +116,41 @@ st.markdown("""
 
 /* 按鈕狀態 */
 button:disabled {
-    background-color: #e5e5e5 !important; color: #bbb !important;
-    border: 1px solid #ddd !important; opacity: 0.8 !important; cursor: not-allowed !important;
+    background-color: #e5e5e5 !important;
+    color: #bbb !important;
+    border: 1px solid #ddd !important;
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
 }
+
 button[kind="primary"] {
-    background-color: #ef4444 !important; color: white !important; border: none !important;
+    background-color: #ef4444 !important;
+    color: white !important;
+    border: none !important;
 }
 
-/* 進入排班按鈕 (維持寬大) */
-.enter-btn-wrap button {
-    background-color: white !important; color: #333 !important;
-    border: 1.5px solid #333 !important; margin-top: 20px !important;
-    height: 48px !important; width: 100% !important; font-size: 16px !important;
+/* 進入排班按鈕 (不需要正方形) */
+.enter-btn-wrap div[data-testid="stButton"] button {
+    aspect-ratio: auto !important; 
+    height: 48px !important;
+    background-color: white !important;
+    color: #333 !important;
+    border: 1.5px solid #333 !important;
+    margin-top: 15px !important;
 }
 
-/* 公告與表格 */
+/* 公告與其他 */
 .ann-box { background: white; border: 2px solid #333; border-radius: 6px; margin: 15px 0; }
 .ann-title { border-bottom: 1.5px solid #333; padding: 8px; font-weight: 700; text-align: center; }
-.ann-body { padding: 12px; font-size: 14px; line-height: 1.6; color: #333; }
+.ann-body { padding: 12px; font-size: 14px; color: #333; line-height: 1.6; }
 
-/* Grid View */
-.wk-title { font-size: 20px; font-weight: 700; margin: 10px 5px; }
+/* 導航列特殊處理：不要用 grid，改回 flex 以免變形 */
+.nav-row div[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    gap: 10px !important;
+}
+
+/* Grid View (Table) */
 .wk-wrap { overflow-x: auto; margin: 5px 0; }
 .wk-tbl { border-collapse: collapse; width: 100%; font-size: 11px; }
 .wk-tbl th, .wk-tbl td { border: 1px solid #333; padding: 4px 2px; text-align: center; }
@@ -142,7 +158,7 @@ button[kind="primary"] {
 .wk-empty-cell { background: #FFE033; height: 20px; }
 .edit-bar { background: #f0f0f0; border-radius: 8px; padding: 10px; margin: 6px 0; }
 .bot-join { background: #4ECDC4; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; color: #111; }
-.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; }
+.admin-access-wrap button { background: transparent !important; color: #aaa !important; border: none !important; font-size: 12px !important; aspect-ratio: auto !important; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -153,7 +169,6 @@ button[kind="primary"] {
 ZONES   = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
 ZONES_S = ["1F沉浸","1F驗票","2F特展","3F展","4F展","5F閱"]
 ADMIN_PW = "1234"
-# WD: 0=Mon, 6=Sun
 WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
 MON_EN = ["","January","February","March","April","May","June",
            "July","August","September","October","November","December"]
@@ -269,9 +284,9 @@ def page_calendar():
     sel_start = st.session_state.sel_week_start
 
     # ── Month Navigation ──
-    c_nav = st.container()
-    c1, c2, c3 = c_nav.columns([1, 4, 1])
-    
+    # 使用 div class 標記，以便 CSS 特殊處理 (避免變成 Grid)
+    st.markdown('<div class="nav-row">', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 4, 1])
     with c1:
         if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
             st.session_state.month_idx = idx-1
@@ -284,6 +299,7 @@ def page_calendar():
             st.session_state.month_idx = idx+1
             st.session_state.sel_week_start = None
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.write("") 
 
@@ -303,15 +319,13 @@ def page_calendar():
         
         for i, d in enumerate(days):
             with dcols[i]:
-                # 1. 隱藏非本月日期 (但保留空白格)
+                # 1. 非本月日期 (但保留空白格)
                 if d.month != month:
                     st.empty() 
                 else:
-                    # 2. 判斷是否休館
                     is_closed = not is_open(d)
                     label = str(d.day)
                     
-                    # 3. 按鈕邏輯
                     if st.button(label, key=f"btn_{d}", type=btn_type, disabled=is_closed, use_container_width=True):
                         st.session_state.sel_week_start = ws
                         st.rerun()
