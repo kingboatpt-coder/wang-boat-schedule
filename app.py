@@ -232,6 +232,8 @@ def init_state():
     except: st.session_state.open_days = []
     try: st.session_state.zone_names = json.loads(raw.get("SYS_ZONE_NAMES",json.dumps(DEFAULT_ZONE_NAMES)))
     except: st.session_state.zone_names = DEFAULT_ZONE_NAMES
+    try: st.session_state.volunteers = json.loads(raw.get("SYS_VOLUNTEERS","[]"))
+    except: st.session_state.volunteers = []
     st.session_state.announcement   = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
@@ -516,6 +518,12 @@ def page_week_grid():
         save_clicked = st.button("儲存", key="save_entry", use_container_width=True)
 
         if save_clicked:
+            name_to_save = new_n.strip()
+            # Validate against approved volunteer list (if list is non-empty)
+            volunteers = st.session_state.get("volunteers", [])
+            if name_to_save and volunteers and name_to_save not in volunteers:
+                st.error(f"❌ 「{name_to_save}」不在志工名單中，請確認姓名是否正確。")
+                st.stop()
             fresh = load_data()
             cloud = fresh.get(key,"")
             old   = st.session_state.bookings.get(key,"")
@@ -523,10 +531,10 @@ def page_week_grid():
                 st.error(f"⚠️ 此格已被「{cloud}」搶先登記！")
                 st.session_state.bookings[key] = cloud
             else:
-                st.session_state.bookings[key] = new_n.strip()
-                save_data(key, new_n.strip())
+                st.session_state.bookings[key] = name_to_save
+                save_data(key, name_to_save)
                 st.session_state.sel_cell = key
-                st.success("✅ 已儲存！" if new_n.strip() else "✅ 已取消排班。")
+                st.success("✅ 已儲存！" if name_to_save else "✅ 已取消排班。")
             st.rerun()
     else:
         st.info("本週全部休館或不在開放月份範圍內")
@@ -552,6 +560,7 @@ def page_admin():
     st.markdown('<div class="admin-card"><div class="admin-title">管理員後台</div>', unsafe_allow_html=True)
     for label,dest in [("管理開放月份","admin_months"),("休館設定","admin_holidays"),
                         ("公告修改","admin_ann"),("區域名稱設定","admin_zones"),
+                        ("👥 志工名單管理","admin_volunteers"),
                         ("📥 下載值班表 Excel","admin_export")]:
         st.markdown('<div class="admin-big-btn">', unsafe_allow_html=True)
         if st.button(label, key=f"ab_{dest}", use_container_width=True): nav(dest)
@@ -772,15 +781,99 @@ def page_admin_zones():
         st.success("已更新！"); st.rerun()
     if st.button("← 返回",key="bk_zn"): nav("admin")
 
+def page_admin_volunteers():
+    st.markdown("## 👥 志工名單管理")
+    st.caption("只有名單中的姓名才能登記排班。名單為空時不做限制（開放任何人填寫）。")
+
+    volunteers = st.session_state.get("volunteers", [])
+
+    # ── Current list ──
+    if volunteers:
+        st.markdown(f"**目前登錄志工：共 {len(volunteers)} 人**")
+        # Display as chips / tag style
+        cols_per_row = 3
+        rows = [volunteers[i:i+cols_per_row] for i in range(0, len(volunteers), cols_per_row)]
+        for row in rows:
+            rcols = st.columns(cols_per_row)
+            for ci, name in enumerate(row):
+                with rcols[ci]:
+                    st.markdown(
+                        f'<div style="background:#4ECDC4;color:#000;border-radius:20px;'
+                        f'padding:4px 10px;text-align:center;font-size:14px;font-weight:600;'
+                        f'margin:2px 0;">{name}</div>',
+                        unsafe_allow_html=True)
+    else:
+        st.info("⚠️ 目前名單為空，任何人都可以填寫排班。")
+
+    st.markdown("---")
+
+    # ── Bulk add ──
+    st.markdown("**批次新增志工**")
+    st.caption("每行一個名字，可一次貼上多位姓名。")
+    bulk_input = st.text_area(
+        "輸入姓名（每行一個）",
+        height=160,
+        key="vol_bulk",
+        placeholder="例：\n王小明\n李美花\n張雅婷",
+        label_visibility="collapsed"
+    )
+    if st.button("✅ 新增到名單", key="vol_add", type="primary", use_container_width=True):
+        new_names = [n.strip() for n in bulk_input.splitlines() if n.strip()]
+        if not new_names:
+            st.warning("請至少輸入一個名字。")
+        else:
+            added = []
+            for name in new_names:
+                if name not in volunteers:
+                    volunteers.append(name)
+                    added.append(name)
+            st.session_state.volunteers = volunteers
+            save_data("SYS_VOLUNTEERS", json.dumps(volunteers))
+            if added:
+                st.success(f"✅ 已新增 {len(added)} 位：{'、'.join(added)}")
+            else:
+                st.info("這些姓名已在名單中，無需重複新增。")
+            st.rerun()
+
+    st.markdown("---")
+
+    # ── Remove individual names ──
+    if volunteers:
+        st.markdown("**刪除志工**")
+        to_remove = st.multiselect(
+            "選擇要刪除的姓名",
+            options=volunteers,
+            label_visibility="collapsed"
+        )
+        if st.button("🗑️ 刪除選取", key="vol_rm", use_container_width=True):
+            if to_remove:
+                volunteers = [v for v in volunteers if v not in to_remove]
+                st.session_state.volunteers = volunteers
+                save_data("SYS_VOLUNTEERS", json.dumps(volunteers))
+                st.success(f"✅ 已刪除：{'、'.join(to_remove)}")
+                st.rerun()
+
+        st.markdown("---")
+        # ── Clear all ──
+        if st.button("🚨 清空全部名單", key="vol_clear", use_container_width=True):
+            st.session_state.volunteers = []
+            save_data("SYS_VOLUNTEERS", json.dumps([]))
+            st.success("✅ 已清空志工名單（現在任何人都可以填表）。")
+            st.rerun()
+
+    if st.button("← 返回", key="bk_vol"): nav("admin")
+
+
 # ── Router ─────────────────────────────────────────────────
 {
-    "calendar":       page_calendar,
-    "week_grid":      page_week_grid,
-    "admin_login":    page_admin_login,
-    "admin":          page_admin,
-    "admin_months":   page_admin_months,
-    "admin_holidays": page_admin_holidays,
-    "admin_ann":      page_admin_ann,
-    "admin_zones":    page_admin_zones,
-    "admin_export":   page_admin_export,
+    "calendar":          page_calendar,
+    "week_grid":         page_week_grid,
+    "admin_login":       page_admin_login,
+    "admin":             page_admin,
+    "admin_months":      page_admin_months,
+    "admin_holidays":    page_admin_holidays,
+    "admin_ann":         page_admin_ann,
+    "admin_zones":       page_admin_zones,
+    "admin_volunteers":  page_admin_volunteers,
+    "admin_export":      page_admin_export,
 }.get(st.session_state.get("page","calendar"), page_calendar)()
