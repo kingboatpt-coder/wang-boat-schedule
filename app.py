@@ -69,20 +69,18 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stHorizonta
     padding-top:0!important;padding-bottom:0!important;margin-top:0!important;margin-bottom:0!important;
 }
 
-/* 3-col month nav — force single horizontal row on all screen sizes */
-div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child){
-    display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;
-    align-items:center!important;justify-content:center!important;
-    margin-bottom:2px!important;gap:0!important;
+/* ── Month nav: use .mnav-row class anchor to target ONLY nav buttons ──
+   This avoids colliding with other 3-col admin layouts               */
+.mnav-row{margin-bottom:4px;}
+.mnav-row div[data-testid="stHorizontalBlock"]{
+    align-items:center!important;gap:0!important;
 }
-div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child)>div{
-    flex-shrink:0!important;
+.mnav-row button{
+    background:transparent!important;border:none!important;box-shadow:none!important;
+    font-size:22px!important;font-weight:700!important;color:#444!important;
+    height:36px!important;min-width:36px!important;padding:0!important;
 }
-div[data-testid="stHorizontalBlock"]:has(>div:nth-child(3):last-child) button{
-    height:30px!important;border:none!important;background:transparent!important;
-    font-size:22px!important;color:#555!important;box-shadow:none!important;
-    padding:0 8px!important;min-width:40px!important;
-}
+.mnav-row button:disabled{color:#ccc!important;}
 
 /* enter button */
 .enter-btn button{
@@ -331,38 +329,28 @@ def page_calendar():
     sel_start = st.session_state.sel_week_start
     min_d, max_d = open_bounds()
 
-    # Month nav — pure HTML flex row to guarantee ◀ Month ▶ never wraps on portrait mobile
-    # Actual prev/next logic still uses st.button but styled as invisible overlays
+    # Month nav — plain st.columns, no overlay tricks
+    # CSS targets these specific buttons via the nav-row class anchor
     prev_disabled = (idx == 0)
     next_disabled = (idx >= len(months) - 1)
 
-    st.markdown(f"""
-    <div style="display:flex;flex-direction:row;align-items:center;justify-content:center;
-                flex-wrap:nowrap;margin-bottom:4px;gap:0;width:100%;">
-        <div style="flex:0 0 44px;text-align:center;font-size:24px;color:{'#ccc' if prev_disabled else '#555'};
-                    line-height:30px;cursor:{'default' if prev_disabled else 'pointer'};">◀</div>
-        <div style="flex:1;text-align:center;font-weight:700;font-size:18px;
-                    line-height:30px;white-space:nowrap;">{MON_EN[month]} {year}</div>
-        <div style="flex:0 0 44px;text-align:center;font-size:24px;color:{'#ccc' if next_disabled else '#555'};
-                    line-height:30px;cursor:{'default' if next_disabled else 'pointer'};">▶</div>
-    </div>
-    """, unsafe_allow_html=True)
-    # Hidden functional buttons (zero height, zero opacity) that handle actual clicks
-    _bc1, _bc2, _bc3 = st.columns([1, 6, 1])
-    with _bc1:
-        st.markdown('<div style="margin-top:-34px;opacity:0;height:30px;overflow:hidden;">', unsafe_allow_html=True)
+    st.markdown('<div class="mnav-row">', unsafe_allow_html=True)
+    _nc1, _nc2, _nc3 = st.columns([1, 5, 1])
+    with _nc1:
         if st.button("◀", key="prev_m", disabled=prev_disabled, use_container_width=True):
             st.session_state.month_idx = idx - 1
             st.session_state.sel_week_start = None
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    with _bc3:
-        st.markdown('<div style="margin-top:-34px;opacity:0;height:30px;overflow:hidden;">', unsafe_allow_html=True)
+    _nc2.markdown(
+        f"<div style='text-align:center;font-weight:700;font-size:18px;"
+        f"line-height:36px;white-space:nowrap;'>{MON_EN[month]} {year}</div>",
+        unsafe_allow_html=True)
+    with _nc3:
         if st.button("▶", key="next_m", disabled=next_disabled, use_container_width=True):
             st.session_state.month_idx = idx + 1
             st.session_state.sel_week_start = None
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Weekday header
     hdr = st.columns(7)
@@ -448,21 +436,29 @@ def page_week_grid():
                      f'<td colspan="{len(INTERNAL_ZONES)}" class="wk-closed-cell" style="height:26px;">休館</td>'
                      f'</tr>')
         else:
-            # Open — 上午
-            html += f'<tr><td class="wk-date-cell" rowspan="2">{lbl}</td><td class="wk-shift-cell">上午</td>'
+            # Open day — TWO separate rows, NO rowspan (rowspan+table-layout:fixed = unstable on mobile)
+            # Date cell: upper row shows label with no bottom border, lower row is empty with no top border
+            # This visually merges them without rowspan rendering bugs
+            html += (f'<tr>'
+                     f'<td class="wk-date-cell" style="border-bottom:none;height:28px;vertical-align:bottom;">{lbl}</td>'
+                     f'<td class="wk-shift-cell">上午</td>')
             for z_id in INTERNAL_ZONES:
-                k  = f"{d_str}_上午_{z_id}_1"
-                v  = st.session_state.bookings.get(k,"").strip()
+                k   = f"{d_str}_上午_{z_id}_1"
+                v   = st.session_state.bookings.get(k, "").strip()
                 cls = "wk-filled-cell" if v else "wk-empty-cell"
-                sc  = " sel-border" if k==sel_cell else ""
-                html += f'<td class="{cls}{sc}">{"<span class=vol-name>"+v+"</span>" if v else ""}</td>'
-            html += '</tr><tr><td class="wk-shift-cell">下午</td>'
+                sc  = " sel-border" if k == sel_cell else ""
+                html += f'<td class="{cls}{sc}">{"<span class=vol-name>" + v + "</span>" if v else ""}</td>'
+            html += '</tr>'
+
+            html += (f'<tr>'
+                     f'<td class="wk-date-cell" style="border-top:none;height:28px;"></td>'
+                     f'<td class="wk-shift-cell">下午</td>')
             for z_id in INTERNAL_ZONES:
-                k  = f"{d_str}_下午_{z_id}_1"
-                v  = st.session_state.bookings.get(k,"").strip()
+                k   = f"{d_str}_下午_{z_id}_1"
+                v   = st.session_state.bookings.get(k, "").strip()
                 cls = "wk-filled-cell" if v else "wk-empty-cell"
-                sc  = " sel-border" if k==sel_cell else ""
-                html += f'<td class="{cls}{sc}">{"<span class=vol-name>"+v+"</span>" if v else ""}</td>'
+                sc  = " sel-border" if k == sel_cell else ""
+                html += f'<td class="{cls}{sc}">{"<span class=vol-name>" + v + "</span>" if v else ""}</td>'
             html += '</tr>'
 
     html += '</table></div>'
