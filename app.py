@@ -331,24 +331,38 @@ def page_calendar():
     sel_start = st.session_state.sel_week_start
     min_d, max_d = open_bounds()
 
-    # Month nav — rendered as pure HTML flex row to guarantee ◀ Month ▶ stays horizontal
-    # Buttons placed outside the HTML using flanking st.columns
-    nav_col1, nav_col2, nav_col3 = st.columns([1, 6, 1])
-    with nav_col1:
-        if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
-            st.session_state.month_idx = idx-1
+    # Month nav — pure HTML flex row to guarantee ◀ Month ▶ never wraps on portrait mobile
+    # Actual prev/next logic still uses st.button but styled as invisible overlays
+    prev_disabled = (idx == 0)
+    next_disabled = (idx >= len(months) - 1)
+
+    st.markdown(f"""
+    <div style="display:flex;flex-direction:row;align-items:center;justify-content:center;
+                flex-wrap:nowrap;margin-bottom:4px;gap:0;width:100%;">
+        <div style="flex:0 0 44px;text-align:center;font-size:24px;color:{'#ccc' if prev_disabled else '#555'};
+                    line-height:30px;cursor:{'default' if prev_disabled else 'pointer'};">◀</div>
+        <div style="flex:1;text-align:center;font-weight:700;font-size:18px;
+                    line-height:30px;white-space:nowrap;">{MON_EN[month]} {year}</div>
+        <div style="flex:0 0 44px;text-align:center;font-size:24px;color:{'#ccc' if next_disabled else '#555'};
+                    line-height:30px;cursor:{'default' if next_disabled else 'pointer'};">▶</div>
+    </div>
+    """, unsafe_allow_html=True)
+    # Hidden functional buttons (zero height, zero opacity) that handle actual clicks
+    _bc1, _bc2, _bc3 = st.columns([1, 6, 1])
+    with _bc1:
+        st.markdown('<div style="margin-top:-34px;opacity:0;height:30px;overflow:hidden;">', unsafe_allow_html=True)
+        if st.button("◀", key="prev_m", disabled=prev_disabled, use_container_width=True):
+            st.session_state.month_idx = idx - 1
             st.session_state.sel_week_start = None
             st.rerun()
-    with nav_col2:
-        st.markdown(
-            f"<div style='text-align:center;font-weight:700;font-size:18px;"
-            f"line-height:30px;white-space:nowrap;'>"
-            f"{MON_EN[month]} {year}</div>", unsafe_allow_html=True)
-    with nav_col3:
-        if st.button("▶", key="next_m", disabled=(idx>=len(months)-1), use_container_width=True):
-            st.session_state.month_idx = idx+1
+        st.markdown('</div>', unsafe_allow_html=True)
+    with _bc3:
+        st.markdown('<div style="margin-top:-34px;opacity:0;height:30px;overflow:hidden;">', unsafe_allow_html=True)
+        if st.button("▶", key="next_m", disabled=next_disabled, use_container_width=True):
+            st.session_state.month_idx = idx + 1
             st.session_state.sel_week_start = None
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Weekday header
     hdr = st.columns(7)
@@ -424,17 +438,8 @@ def page_week_grid():
         lbl    = f"{day.month}/{day.day}<br>({WD[day.weekday()]})"
 
         if status == "outrange":
-            # Single row — NO rowspan/colspan combo (causes cell position drift)
-            # Use 2 slim rows with no shift label, full-width stripe
-            html += (f'<tr style="height:20px;">'
-                     f'<td class="wk-date-cell" rowspan="2" style="color:#bbb;font-size:10px;">{lbl}</td>'
-                     f'<td style="border:1px solid #333;background:#d0d0d0;'
-                     f'background-image:repeating-linear-gradient(45deg,transparent,transparent 4px,#aaa 4px,#aaa 5px);" colspan="{len(INTERNAL_ZONES)+1}"></td>'
-                     f'</tr>'
-                     f'<tr style="height:20px;">'
-                     f'<td style="border:1px solid #333;background:#d0d0d0;'
-                     f'background-image:repeating-linear-gradient(45deg,transparent,transparent 4px,#aaa 4px,#aaa 5px);" colspan="{len(INTERNAL_ZONES)+1}"></td>'
-                     f'</tr>')
+            # 完全跳過：不渲染開放月份範圍外的日期行
+            continue
         elif status == "closed":
             # 正常休館 → 輕斜線
             html += (f'<tr>'
@@ -490,17 +495,20 @@ def page_week_grid():
     if open_days:
         st.markdown("**📝 登記排班**")
 
+        # Use ws-based keys so selectboxes RESET to default when week changes
+        ws_key = ws.strftime('%Y%m%d')
+
         d_opts   = [f"{d.month}/{d.day}({WD[d.weekday()]})" for d in open_days]
         d_idx    = st.selectbox("日期", range(len(open_days)),
-                                format_func=lambda i: d_opts[i], key="pk_d")
+                                format_func=lambda i: d_opts[i], key=f"pk_d_{ws_key}")
         sel_date = open_days[d_idx]
 
         shifts = ["上午","下午"]
-        s_idx  = st.selectbox("時段", range(2), format_func=lambda i: shifts[i], key="pk_s")
+        s_idx  = st.selectbox("時段", range(2), format_func=lambda i: shifts[i], key=f"pk_s_{ws_key}")
         sel_sf = shifts[s_idx]
 
         z_idx  = st.selectbox("區域", range(len(zone_names)),
-                              format_func=lambda i: zone_names[i], key="pk_z")
+                              format_func=lambda i: zone_names[i], key=f"pk_z_{ws_key}")
         sel_zid = INTERNAL_ZONES[z_idx]
 
         key = f"{sel_date.strftime('%Y-%m-%d')}_{sel_sf}_{sel_zid}_1"
