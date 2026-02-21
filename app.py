@@ -219,6 +219,8 @@ def init_state():
     except:
         st.session_state.volunteers = []
     st.session_state.announcement   = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
+    try: st.session_state.duty_files = json.loads(raw.get("SYS_DUTY_FILES","[]"))
+    except: st.session_state.duty_files = []
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
     st.session_state.sel_week_start = None
@@ -373,22 +375,21 @@ def _bottom_row(months):
 
 def _schedule_info_panel(months, volunteers):
     """Panel shown after clicking 確認排班資訊."""
-
     verified_name = st.session_state.get("dl_verified_name", None)
+    verified_id   = st.session_state.get("dl_verified_id", None)
 
-    st.markdown("""
-    <div style="background:white;border:1.5px solid #d1a84b;border-radius:10px;
-                padding:14px 14px 10px;margin-top:4px;">
-      <div style="font-weight:700;font-size:14px;color:#92400e;margin-bottom:10px;">
-        🪪 請輸入身分證字號以確認排班資訊
-      </div>
-    </div>""", unsafe_allow_html=True)
+    # ── Compact header ──
+    st.markdown(
+        '<div style="background:#fffbeb;border:1.5px solid #d1a84b;border-radius:8px;'
+        'padding:6px 12px;margin-top:4px;margin-bottom:0;">'
+        '<span style="font-weight:700;font-size:13px;color:#92400e;">🪪 請輸入身分證字號以確認排班資訊</span>'
+        '</div>', unsafe_allow_html=True)
 
-    # ── Step 1: ID input (always shown) ──
+    # ── ID input + verify button in one row ──
     id_col, btn_col = st.columns([3, 1])
     with id_col:
         id_input = st.text_input("身分證字號", key="dl_id",
-                                 placeholder="第一碼大小寫皆可",
+                                 placeholder="身分證字號（第一碼大小寫皆可）",
                                  label_visibility="collapsed")
     with btn_col:
         verify_clicked = st.button("驗證", key="dl_verify_btn", use_container_width=True)
@@ -398,6 +399,7 @@ def _schedule_info_panel(months, volunteers):
         if not inp:
             st.error("請輸入身分證字號。")
             st.session_state.pop("dl_verified_name", None)
+            st.session_state.pop("dl_verified_id", None)
         else:
             id_norm = inp[0].upper() + inp[1:]
             matched = None
@@ -407,85 +409,214 @@ def _schedule_info_panel(months, volunteers):
                     matched = v; break
             if matched:
                 st.session_state.dl_verified_name = matched["name"]
+                st.session_state.dl_verified_id   = matched["id"].strip()[0].upper() + matched["id"].strip()[1:]
                 verified_name = matched["name"]
+                verified_id   = st.session_state.dl_verified_id
             else:
                 st.error("❌ 身分證字號不符，請重新確認。")
                 st.session_state.pop("dl_verified_name", None)
-                verified_name = None
+                st.session_state.pop("dl_verified_id", None)
+                verified_name = None; verified_id = None
 
-    # ── Step 2: Show schedule only after verification ──
-    if verified_name:
-        st.markdown(f'<div style="color:#16a34a;font-weight:700;font-size:13px;'
-                    f'margin:6px 0 4px;">✅ 驗證成功：{verified_name}</div>',
+    if not verified_name:
+        return
+
+    # ── Verified badge ──
+    st.markdown(
+        f'<div style="color:#16a34a;font-weight:700;font-size:13px;margin:4px 0 2px;">'
+        f'✅ 驗證成功：{verified_name}</div>', unsafe_allow_html=True)
+
+    # ── Month selector ──
+    month_opts   = [(y, m) for y, m in sorted(months)]
+    month_labels = [f"{y}年{m}月" for y, m in month_opts]
+    m_sel = st.selectbox("開放月份", range(len(month_opts)),
+                         format_func=lambda i: month_labels[i],
+                         key="dl_month", label_visibility="collapsed")
+    sel_y, sel_m = month_opts[m_sel]
+
+    # ── Build schedule rows ──
+    zone_names = st.session_state.zone_names
+    bookings   = st.session_state.bookings
+    d_cur = date(sel_y, sel_m, 1)
+    d_end = date(sel_y, sel_m, calendar.monthrange(sel_y, sel_m)[1])
+    records = []
+    while d_cur <= d_end:
+        d_str = d_cur.strftime("%Y-%m-%d")
+        for shift in ["上午","下午"]:
+            for z_id, z_name in zip(INTERNAL_ZONES, zone_names):
+                k = f"{d_str}_{shift}_{z_id}_1"
+                if bookings.get(k,"").strip() == verified_name:
+                    records.append((d_cur, shift, z_name))
+        d_cur += timedelta(days=1)
+
+    total_hrs = len(records) * 3
+
+    # ── Schedule card ──
+    if records:
+        rows_html = ""
+        for i, (d_obj, shift, zone) in enumerate(records):
+            bg = "#fffbeb" if i % 2 == 0 else "#ffffff"
+            date_lbl = f"{d_obj.month}/{d_obj.day}&nbsp;<span style='color:#888;font-size:11px;'>(週{WD[d_obj.weekday()]})</span>"
+            rows_html += (
+                f'<div style="display:flex;align-items:center;padding:6px 10px;'
+                f'background:{bg};border-bottom:1px solid #f0e8d0;gap:6px;">'
+                f'<span style="flex:0 0 66px;font-weight:700;font-size:13px;">{date_lbl}</span>'
+                f'<span style="flex:0 0 30px;background:#3b82f6;color:white;border-radius:4px;'
+                f'font-size:11px;font-weight:600;text-align:center;padding:2px 3px;">{shift}</span>'
+                f'<span style="flex:1;font-size:12px;color:#374151;">{zone}</span>'
+                f'</div>'
+            )
+        total_bar = (
+            f'<div style="display:flex;justify-content:flex-end;align-items:center;'
+            f'padding:7px 12px;background:#fef3c7;border-top:2px solid #f59e0b;">'
+            f'<span style="font-size:13px;font-weight:700;color:#92400e;">'
+            f'本月預計排班總時數&nbsp;&nbsp;'
+            f'<span style="font-size:20px;color:#dc2626;">{total_hrs}</span>&nbsp;小時</span></div>'
+        )
+        st.markdown(
+            f'<div style="border:1.5px solid #f59e0b;border-radius:8px;overflow:hidden;margin-top:4px;">'
+            f'{rows_html}{total_bar}</div>', unsafe_allow_html=True)
+
+        if st.button("⬇️ 下載 Excel 班表", key="dl_excel_btn", use_container_width=True):
+            _do_export_excel(verified_name, sel_y, sel_m, records, total_hrs)
+    else:
+        st.markdown(
+            f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
+            f'padding:10px;text-align:center;color:#6b7280;font-size:13px;margin-top:4px;">'
+            f'📭 {sel_y}年{sel_m}月 尚無排班記錄</div>', unsafe_allow_html=True)
+
+    # ── Duty history section ──
+    _duty_history_section(verified_name, verified_id)
+
+
+def _duty_history_section(verified_name, verified_id):
+    """Collapsible section: 查看已累計執勤時數 (from admin-uploaded Excel files)."""
+    duty_files = st.session_state.get("duty_files", [])
+    if not duty_files:
+        return
+
+    # Toggle button
+    open_key = "duty_hist_open"
+    is_open  = st.session_state.get(open_key, False)
+    arrow    = "▲" if is_open else "▼"
+    st.markdown(
+        f'<div style="margin-top:6px;margin-bottom:0;">', unsafe_allow_html=True)
+    if st.button(f"　查看已累計執勤時數　{arrow}", key="duty_hist_toggle", use_container_width=True):
+        st.session_state[open_key] = not is_open
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if not st.session_state.get(open_key, False):
+        return
+
+    # ── File selector ──
+    file_labels = [f["name"] for f in duty_files]
+    f_sel = st.selectbox("選擇年度", range(len(duty_files)),
+                         format_func=lambda i: file_labels[i],
+                         key="duty_file_sel", label_visibility="collapsed")
+    chosen = duty_files[f_sel]
+    raw_json = st.session_state.bookings.get(chosen["key"], "[]")
+    try:
+        all_rows = json.loads(raw_json)
+    except:
+        all_rows = []
+
+    # ── Filter by ID (normalized first char) ──
+    def id_norm(s):
+        s = str(s).strip()
+        return (s[0].upper() + s[1:]) if s else ""
+
+    my_id = id_norm(verified_id) if verified_id else ""
+    my_rows = [r for r in all_rows if my_id and id_norm(r.get("id","")) == my_id]
+
+    total_hrs = sum(float(r.get("hours", 0)) for r in my_rows)
+
+    # ── Display ──
+    st.markdown(
+        f'<div style="background:white;border:1.5px solid #d1d5db;border-radius:8px;'
+        f'padding:12px 14px 8px;margin-top:4px;">',
+        unsafe_allow_html=True)
+
+    if my_rows:
+        rows_html = ""
+        for i, r in enumerate(my_rows):
+            bg = "#f8faff" if i % 2 == 0 else "#ffffff"
+            rows_html += (
+                f'<div style="display:flex;align-items:center;padding:5px 8px;'
+                f'background:{bg};border-bottom:1px solid #e5e7eb;gap:8px;font-size:12px;">'
+                f'<span style="flex:0 0 90px;font-weight:600;color:#374151;">{r.get("date","")}</span>'
+                f'<span style="flex:1;color:#6b7280;">{r.get("name","")}</span>'
+                f'<span style="flex:0 0 50px;text-align:right;font-weight:600;color:#1d4ed8;">'
+                f'{r.get("hours","")} 小時</span>'
+                f'</div>'
+            )
+        total_bar = (
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'padding:8px 10px;background:#eff6ff;border-top:2px solid #3b82f6;'
+            f'border-radius:0 0 6px 6px;">'
+            f'<span style="font-size:12px;color:#1e40af;font-weight:600;">'
+            f'{chosen["name"]}累計值勤</span>'
+            f'<span style="font-size:18px;font-weight:700;color:#dc2626;">'
+            f'{int(total_hrs) if total_hrs == int(total_hrs) else total_hrs} 小時</span>'
+            f'</div>'
+        )
+        st.markdown(
+            f'<div style="border:1px solid #bfdbfe;border-radius:6px;overflow:hidden;margin-bottom:8px;">'
+            f'{rows_html}{total_bar}</div>', unsafe_allow_html=True)
+
+        st.markdown('<span style="font-size:12px;color:#6b7280;">謝謝您的付出 ～</span>',
                     unsafe_allow_html=True)
 
-        # Month selector
-        month_opts   = [(y, m) for y, m in sorted(months)]
-        month_labels = [f"{y}年{m}月" for y, m in month_opts]
-        m_sel = st.selectbox("開放月份", range(len(month_opts)),
-                             format_func=lambda i: month_labels[i],
-                             key="dl_month", label_visibility="collapsed")
-        sel_y, sel_m = month_opts[m_sel]
+        # ── Personal download button ──
+        if st.button("⬇️ 下載個人值勤資料", key="duty_dl_btn", use_container_width=True):
+            _export_duty_excel(verified_name, chosen["name"], my_rows, total_hrs)
+    else:
+        st.markdown(
+            f'<div style="text-align:center;color:#9ca3af;font-size:13px;padding:8px 0;">'
+            f'📭 {chosen["name"]} 查無您的值勤記錄</div>', unsafe_allow_html=True)
 
-        # Build schedule rows
-        zone_names = st.session_state.zone_names
-        bookings   = st.session_state.bookings
-        d_cur = date(sel_y, sel_m, 1)
-        d_end = date(sel_y, sel_m, calendar.monthrange(sel_y, sel_m)[1])
-        records = []
-        while d_cur <= d_end:
-            d_str = d_cur.strftime("%Y-%m-%d")
-            for shift in ["上午","下午"]:
-                for z_id, z_name in zip(INTERNAL_ZONES, zone_names):
-                    k = f"{d_str}_{shift}_{z_id}_1"
-                    if bookings.get(k,"").strip() == verified_name:
-                        records.append((d_cur, shift, z_name))
-            d_cur += timedelta(days=1)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        total_hrs = len(records) * 3
 
-        # ── Schedule display card ──
-        if records:
-            rows_html = ""
-            for i, (d_obj, shift, zone) in enumerate(records):
-                bg = "#fffbeb" if i % 2 == 0 else "#ffffff"
-                date_lbl = f"{d_obj.month}/{d_obj.day}&nbsp;<span style='color:#888;font-size:11px;'>(週{WD[d_obj.weekday()]})</span>"
-                rows_html += (
-                    f'<div style="display:flex;align-items:center;padding:7px 10px;'
-                    f'background:{bg};border-bottom:1px solid #f0e8d0;gap:6px;">'
-                    f'<span style="flex:0 0 70px;font-weight:700;font-size:13px;">{date_lbl}</span>'
-                    f'<span style="flex:0 0 32px;background:#3b82f6;color:white;border-radius:4px;'
-                    f'font-size:11px;font-weight:600;text-align:center;padding:2px 4px;">{shift}</span>'
-                    f'<span style="flex:1;font-size:12px;color:#374151;">{zone}</span>'
-                    f'</div>'
-                )
-            total_html = (
-                f'<div style="display:flex;justify-content:flex-end;align-items:center;'
-                f'padding:8px 12px;background:#fef3c7;border-top:2px solid #f59e0b;">'
-                f'<span style="font-size:13px;font-weight:700;color:#92400e;">'
-                f'本月預計排班總時數&nbsp;&nbsp;<span style="font-size:20px;color:#dc2626;">'
-                f'{total_hrs}</span>&nbsp;小時</span></div>'
-            )
-            st.markdown(
-                f'<div style="border:1.5px solid #f59e0b;border-radius:8px;'
-                f'overflow:hidden;margin-top:6px;">'
-                f'{rows_html}{total_html}</div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown(
-                f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
-                f'padding:14px;text-align:center;color:#6b7280;font-size:13px;margin-top:6px;">'
-                f'📭 {sel_y}年{sel_m}月 尚無排班記錄</div>',
-                unsafe_allow_html=True
-            )
+def _export_duty_excel(vol_name, file_label, rows, total_hrs):
+    """Export filtered duty records as Excel."""
+    out_rows = [{"姓名": r.get("name", vol_name),
+                 "服務日期": r.get("date",""),
+                 "時數(hr)": r.get("hours","")}
+                for r in rows]
+    total = {"姓名":"合計","服務日期":"","時數(hr)":
+             int(total_hrs) if total_hrs == int(total_hrs) else total_hrs}
+    df_out = pd.concat([pd.DataFrame(out_rows),
+                        pd.DataFrame([total])], ignore_index=True)
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df_out.to_excel(writer, index=False, sheet_name="個人值勤資料")
+            ws_xl = writer.sheets["個人值勤資料"]
+            for col in ws_xl.columns:
+                ws_xl.column_dimensions[col[0].column_letter].width = \
+                    max(len(str(c.value or "")) for c in col) + 4
+            for cell in ws_xl[ws_xl.max_row]:
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill("solid", fgColor="DBEAFE")
+        buf.seek(0)
+        st.download_button(
+            f"⬇️ 點此下載 {vol_name} {file_label} 值勤資料.xlsx",
+            data=buf,
+            file_name=f"{vol_name}_{file_label}值勤.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True, type="primary")
+    except ImportError:
+        csv_str = df_out.to_csv(index=False, encoding="utf-8-sig")
+        st.download_button(
+            f"⬇️ 點此下載 {vol_name} {file_label} 值勤資料.csv",
+            data=csv_str.encode("utf-8-sig"),
+            file_name=f"{vol_name}_{file_label}值勤.csv",
+            mime="text/csv", use_container_width=True, type="primary")
 
-        # ── Download button (secondary) ──
-        if records:
-            st.markdown('<div style="margin-top:8px;">', unsafe_allow_html=True)
-            if st.button("⬇️ 下載 Excel 班表", key="dl_excel_btn", use_container_width=True):
-                _do_export_excel(verified_name, sel_y, sel_m, records, total_hrs)
-            st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 def _do_export_excel(vol_name, sel_y, sel_m, records, total_hrs):
@@ -700,6 +831,7 @@ def page_admin():
     for label,dest in [("管理開放月份","admin_months"),("休館設定","admin_holidays"),
                        ("公告修改","admin_ann"),("區域名稱設定","admin_zones"),
                        ("👥 志工名單管理","admin_volunteers"),
+                       ("📊 值勤時數檔案管理","admin_duty_files"),
                        ("📥 下載值班表 Excel","admin_export")]:
         st.markdown('<div class="admin-big-btn">', unsafe_allow_html=True)
         if st.button(label, key=f"ab_{dest}", use_container_width=True): nav(dest)
@@ -897,6 +1029,129 @@ def page_admin_volunteers():
         st.session_state.volunteers=[]; save_data("SYS_VOLUNTEERS","[]"); st.rerun()
     if st.button("← 返回", key="bk_vol"): nav("admin")
 
+def page_admin_duty_files():
+    """Admin: upload & manage yearly duty hour Excel files."""
+    st.markdown("## 📊 值勤時數檔案管理")
+    st.caption("上傳各年度志工值勤紀錄 Excel，志工輸入身分證後系統自動過濾顯示個人資料。")
+
+    duty_files = st.session_state.get("duty_files", [])
+
+    # ── Existing files ──
+    if duty_files:
+        st.markdown(f"**已上傳檔案（共 {len(duty_files)} 份）**")
+        to_delete = []
+        for i, f in enumerate(duty_files):
+            c1, c2, c3 = st.columns([4, 2, 1])
+            # Editable name
+            new_label = c1.text_input("顯示名稱", value=f["name"], key=f"df_name_{i}",
+                                       label_visibility="collapsed")
+            row_count = len(json.loads(st.session_state.bookings.get(f["key"],"[]")))
+            c2.markdown(f'<div style="padding:6px 0;font-size:12px;color:#666;">{row_count} 筆記錄</div>',
+                        unsafe_allow_html=True)
+            if c3.button("✕", key=f"df_del_{i}"):
+                to_delete.append(i)
+            elif new_label != f["name"]:
+                duty_files[i]["name"] = new_label
+                st.session_state.duty_files = duty_files
+                save_data("SYS_DUTY_FILES", json.dumps(duty_files))
+                st.rerun()
+
+        if to_delete:
+            for i in sorted(to_delete, reverse=True):
+                # Also remove data key
+                del_key = duty_files[i]["key"]
+                save_data(del_key, "[]")
+                duty_files.pop(i)
+            st.session_state.duty_files = duty_files
+            save_data("SYS_DUTY_FILES", json.dumps(duty_files))
+            st.rerun()
+
+        st.markdown("---")
+
+    # ── Upload new file ──
+    st.markdown("**上傳新的值勤紀錄 Excel**")
+    st.caption("Excel 欄位需包含：姓名、身分證字號、服務日期起（或日期）、時數（或服務時數）")
+
+    display_name = st.text_input("顯示名稱（例：114年服務時數）", key="df_new_name",
+                                  placeholder="114年服務時數")
+    uploaded = st.file_uploader("選擇 Excel 檔案 (.xlsx)", type=["xlsx"],
+                                 key="df_uploader")
+
+    if uploaded and display_name.strip():
+        if st.button("📤 解析並儲存", key="df_parse_btn", type="primary", use_container_width=True):
+            try:
+                df_raw = pd.read_excel(uploaded, engine="openpyxl")
+                # ── Auto-detect columns ──
+                col_map = {}
+                for col in df_raw.columns:
+                    c = str(col).replace(" ","").replace("　","")
+                    if any(k in c for k in ["姓名","名字"]):         col_map.setdefault("name", col)
+                    if any(k in c for k in ["身分證","身份證","證號","証號","ID","id"]): col_map.setdefault("id", col)
+                    if any(k in c for k in ["日期起","服務日期","開始日","日期"]):     col_map.setdefault("date", col)
+                    if any(k in c for k in ["時數","服務時數","小時","時間"]):         col_map.setdefault("hours", col)
+
+                missing = [k for k in ["name","id","date","hours"] if k not in col_map]
+                if missing:
+                    st.error(f"❌ 找不到必要欄位，請確認 Excel 包含：姓名、身分證字號、日期、時數。\n"
+                             f"偵測到的欄位：{list(df_raw.columns)}")
+                else:
+                    # Parse rows
+                    records = []
+                    for _, row in df_raw.iterrows():
+                        nm  = str(row[col_map["name"]]).strip()
+                        rid = str(row[col_map["id"]]).strip()
+                        dt  = str(row[col_map["date"]]).strip()
+                        hrs = row[col_map["hours"]]
+                        if nm and rid and rid != "nan":
+                            # Normalize date display
+                            try:
+                                dt_parsed = pd.to_datetime(dt)
+                                dt = dt_parsed.strftime("%Y/%m/%d")
+                            except: pass
+                            try: hrs = float(hrs)
+                            except: hrs = 0
+                            records.append({"name": nm, "id": rid, "date": dt, "hours": hrs})
+
+                    # Save to GSheets
+                    file_idx = len(duty_files)
+                    data_key = f"SYS_DUTY_DATA_{file_idx}"
+                    save_data(data_key, json.dumps(records, ensure_ascii=False))
+                    duty_files.append({"name": display_name.strip(), "key": data_key})
+                    st.session_state.duty_files = duty_files
+                    # Also cache in bookings for immediate use
+                    st.session_state.bookings[data_key] = json.dumps(records, ensure_ascii=False)
+                    save_data("SYS_DUTY_FILES", json.dumps(duty_files))
+                    st.success(f"✅ 已儲存「{display_name.strip()}」，共 {len(records)} 筆記錄。")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"❌ 解析失敗：{e}")
+    elif uploaded and not display_name.strip():
+        st.warning("請先填寫顯示名稱。")
+
+    st.markdown("---")
+
+    # ── Preview a file ──
+    if duty_files:
+        st.markdown("**預覽檔案內容**")
+        prev_sel = st.selectbox("選擇要預覽的檔案", range(len(duty_files)),
+                                format_func=lambda i: duty_files[i]["name"],
+                                key="df_preview_sel")
+        prev_data = json.loads(st.session_state.bookings.get(duty_files[prev_sel]["key"],"[]"))
+        if prev_data:
+            df_prev = pd.DataFrame(prev_data[:50])
+            df_prev.columns = ["姓名","身分證（已存）","服務日期","時數(hr)"]
+            # Mask ID in preview
+            df_prev["身分證（已存）"] = df_prev["身分證（已存）"].apply(
+                lambda x: (str(x)[:3]+"***"+str(x)[-1]) if len(str(x))>=4 else "***")
+            st.dataframe(df_prev, use_container_width=True, hide_index=True)
+            if len(prev_data) > 50:
+                st.caption(f"（僅顯示前50筆，共 {len(prev_data)} 筆）")
+        else:
+            st.info("此檔案無資料。")
+
+    if st.button("← 返回", key="bk_df"): nav("admin")
+
+
 # ── Router ─────────────────────────────────────────────────
 {
     "calendar":          page_calendar,
@@ -908,5 +1163,6 @@ def page_admin_volunteers():
     "admin_ann":         page_admin_ann,
     "admin_zones":       page_admin_zones,
     "admin_volunteers":  page_admin_volunteers,
+    "admin_duty_files":  page_admin_duty_files,
     "admin_export":      page_admin_export,
 }.get(st.session_state.get("page","calendar"), page_calendar)()
