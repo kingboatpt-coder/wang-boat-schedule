@@ -221,6 +221,11 @@ def init_state():
     st.session_state.announcement   = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
     try: st.session_state.duty_files = json.loads(raw.get("SYS_DUTY_FILES","[]"))
     except: st.session_state.duty_files = []
+    # Load each duty data file into bookings cache (needed for mobile/new sessions)
+    for df_meta in st.session_state.duty_files:
+        dk = df_meta.get("key","")
+        if dk and dk not in st.session_state.bookings and dk in raw:
+            st.session_state.bookings[dk] = raw[dk]
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
     st.session_state.sel_week_start = None
@@ -477,8 +482,6 @@ def _schedule_info_panel(months, volunteers):
             f'<div style="border:1.5px solid #f59e0b;border-radius:8px;overflow:hidden;margin-top:4px;">'
             f'{rows_html}{total_bar}</div>', unsafe_allow_html=True)
 
-        if st.button("⬇️ 下載 Excel 班表", key="dl_excel_btn", use_container_width=True):
-            _do_export_excel(verified_name, sel_y, sel_m, records, total_hrs)
     else:
         st.markdown(
             f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
@@ -490,26 +493,21 @@ def _schedule_info_panel(months, volunteers):
 
 
 def _duty_history_section(verified_name, verified_id):
-    """Collapsible section: 查看已累計執勤時數 (from admin-uploaded Excel files)."""
+    """Collapsible: 查看已累計執勤時數."""
     duty_files = st.session_state.get("duty_files", [])
     if not duty_files:
         return
 
-    # Toggle button
     open_key = "duty_hist_open"
     is_open  = st.session_state.get(open_key, False)
     arrow    = "▲" if is_open else "▼"
-    st.markdown(
-        f'<div style="margin-top:6px;margin-bottom:0;">', unsafe_allow_html=True)
     if st.button(f"　查看已累計執勤時數　{arrow}", key="duty_hist_toggle", use_container_width=True):
         st.session_state[open_key] = not is_open
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
     if not st.session_state.get(open_key, False):
         return
 
-    # ── File selector ──
     file_labels = [f["name"] for f in duty_files]
     f_sel = st.selectbox("選擇年度", range(len(duty_files)),
                          format_func=lambda i: file_labels[i],
@@ -521,62 +519,34 @@ def _duty_history_section(verified_name, verified_id):
     except:
         all_rows = []
 
-    # ── Filter by ID (normalized first char) ──
     def id_norm(s):
         s = str(s).strip()
         return (s[0].upper() + s[1:]) if s else ""
 
-    my_id = id_norm(verified_id) if verified_id else ""
+    my_id   = id_norm(verified_id) if verified_id else ""
     my_rows = [r for r in all_rows if my_id and id_norm(r.get("id","")) == my_id]
-
-    total_hrs = sum(float(r.get("hours", 0)) for r in my_rows)
-
-    # ── Display ──
-    st.markdown(
-        f'<div style="background:white;border:1.5px solid #d1d5db;border-radius:8px;'
-        f'padding:12px 14px 8px;margin-top:4px;">',
-        unsafe_allow_html=True)
+    total_hrs  = sum(float(r.get("hours", 0)) for r in my_rows)
+    total_disp = int(total_hrs) if total_hrs == int(total_hrs) else total_hrs
 
     if my_rows:
-        rows_html = ""
-        for i, r in enumerate(my_rows):
-            bg = "#f8faff" if i % 2 == 0 else "#ffffff"
-            rows_html += (
-                f'<div style="display:flex;align-items:center;padding:5px 8px;'
-                f'background:{bg};border-bottom:1px solid #e5e7eb;gap:8px;font-size:12px;">'
-                f'<span style="flex:0 0 90px;font-weight:600;color:#374151;">{r.get("date","")}</span>'
-                f'<span style="flex:1;color:#6b7280;">{r.get("name","")}</span>'
-                f'<span style="flex:0 0 50px;text-align:right;font-weight:600;color:#1d4ed8;">'
-                f'{r.get("hours","")} 小時</span>'
-                f'</div>'
-            )
-        total_bar = (
-            f'<div style="display:flex;justify-content:space-between;align-items:center;'
-            f'padding:8px 10px;background:#eff6ff;border-top:2px solid #3b82f6;'
-            f'border-radius:0 0 6px 6px;">'
-            f'<span style="font-size:12px;color:#1e40af;font-weight:600;">'
-            f'{chosen["name"]}累計值勤</span>'
-            f'<span style="font-size:18px;font-weight:700;color:#dc2626;">'
-            f'{int(total_hrs) if total_hrs == int(total_hrs) else total_hrs} 小時</span>'
-            f'</div>'
-        )
         st.markdown(
-            f'<div style="border:1px solid #bfdbfe;border-radius:6px;overflow:hidden;margin-bottom:8px;">'
-            f'{rows_html}{total_bar}</div>', unsafe_allow_html=True)
-
-        st.markdown('<span style="font-size:12px;color:#6b7280;">謝謝您的付出 ～</span>',
-                    unsafe_allow_html=True)
-
-        # ── Personal download button ──
+            f'<div style="background:white;border:1.5px solid #bfdbfe;border-radius:8px;'
+            f'padding:12px 14px;margin-top:2px;">'
+            f'<div style="font-size:13px;color:#1e40af;font-weight:600;margin-bottom:6px;">'
+            f'{chosen["name"]}</div>'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+            f'<span style="font-size:13px;color:#374151;">累計值勤時數</span>'
+            f'<span style="font-size:22px;font-weight:700;color:#dc2626;">{total_disp} 小時</span>'
+            f'</div>'
+            f'<div style="font-size:12px;color:#6b7280;margin-top:6px;">謝謝您的付出 ～</div>'
+            f'</div>', unsafe_allow_html=True)
         if st.button("⬇️ 下載個人值勤資料", key="duty_dl_btn", use_container_width=True):
             _export_duty_excel(verified_name, chosen["name"], my_rows, total_hrs)
     else:
         st.markdown(
-            f'<div style="text-align:center;color:#9ca3af;font-size:13px;padding:8px 0;">'
+            f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
+            f'padding:10px;text-align:center;color:#9ca3af;font-size:13px;margin-top:2px;">'
             f'📭 {chosen["name"]} 查無您的值勤記錄</div>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
 
 def _export_duty_excel(vol_name, file_label, rows, total_hrs):
     """Export filtered duty records as Excel."""
@@ -1086,13 +1056,25 @@ def page_admin_duty_files():
                 # ── Auto-detect columns ──
                 col_map = {}
                 for col in df_raw.columns:
-                    c = str(col).replace(" ","").replace("　","")
-                    if any(k in c for k in ["姓名","名字"]):         col_map.setdefault("name", col)
-                    if any(k in c for k in ["身分證","身份證","證號","証號","ID","id"]): col_map.setdefault("id", col)
-                    if any(k in c for k in ["日期起","服務日期","開始日","日期"]):     col_map.setdefault("date", col)
-                    if any(k in c for k in ["時數","服務時數","小時","時間"]):         col_map.setdefault("hours", col)
+                    c = str(col).replace(" ","").replace("　","").replace("-","").replace("－","")
+                    if any(k in c for k in ["姓名","名字"]):                              col_map.setdefault("name", col)
+                    if any(k in c for k in ["身分證","身份證","證號","証號","ID","id"]):    col_map.setdefault("id", col)
+                    if any(k in c for k in ["日期起","服務日期","開始日","日期"]):          col_map.setdefault("date", col)
+                    # Separate 小時/分鐘 columns take priority over combined
+                    if any(k in c for k in ["服務時數小時","時數小時","小時數"]):           col_map["hours_h"] = col
+                    if any(k in c for k in ["服務時數分鐘","時數分鐘","分鐘數"]):           col_map["hours_m"] = col
+                    # Fallback: combined hours column
+                    if "hours_h" not in col_map and "hours_m" not in col_map:
+                        if any(k in c for k in ["時數","服務時數","小時","時間"]):          col_map.setdefault("hours", col)
 
-                missing = [k for k in ["name","id","date","hours"] if k not in col_map]
+                # If we have split columns, mark as handled
+                has_split = "hours_h" in col_map or "hours_m" in col_map
+                if has_split:
+                    col_map.pop("hours", None)  # prefer split over combined
+
+                required = ["name","id","date"]
+                required += [] if has_split else ["hours"]
+                missing = [k for k in required if k not in col_map]
                 if missing:
                     st.error(f"❌ 找不到必要欄位，請確認 Excel 包含：姓名、身分證字號、日期、時數。\n"
                              f"偵測到的欄位：{list(df_raw.columns)}")
@@ -1103,16 +1085,25 @@ def page_admin_duty_files():
                         nm  = str(row[col_map["name"]]).strip()
                         rid = str(row[col_map["id"]]).strip()
                         dt  = str(row[col_map["date"]]).strip()
-                        hrs = row[col_map["hours"]]
-                        if nm and rid and rid != "nan":
-                            # Normalize date display
-                            try:
-                                dt_parsed = pd.to_datetime(dt)
-                                dt = dt_parsed.strftime("%Y/%m/%d")
-                            except: pass
-                            try: hrs = float(hrs)
+                        if not nm or not rid or rid == "nan":
+                            continue
+                        # ── Combine 小時 + 分鐘 → decimal hours ──
+                        if has_split:
+                            try: h = float(row[col_map["hours_h"]]) if "hours_h" in col_map else 0
+                            except: h = 0
+                            try: m = float(row[col_map["hours_m"]]) if "hours_m" in col_map else 0
+                            except: m = 0
+                            hrs = h + m / 60.0
+                        else:
+                            try: hrs = float(row[col_map["hours"]])
                             except: hrs = 0
-                            records.append({"name": nm, "id": rid, "date": dt, "hours": hrs})
+                        # Round to 1 decimal to avoid floating point noise
+                        hrs = round(hrs, 1)
+                        # Normalize date display
+                        try:
+                            dt = pd.to_datetime(dt).strftime("%Y/%m/%d")
+                        except: pass
+                        records.append({"name": nm, "id": rid, "date": dt, "hours": hrs})
 
                     # Save to GSheets
                     file_idx = len(duty_files)
@@ -1131,25 +1122,6 @@ def page_admin_duty_files():
         st.warning("請先填寫顯示名稱。")
 
     st.markdown("---")
-
-    # ── Preview a file ──
-    if duty_files:
-        st.markdown("**預覽檔案內容**")
-        prev_sel = st.selectbox("選擇要預覽的檔案", range(len(duty_files)),
-                                format_func=lambda i: duty_files[i]["name"],
-                                key="df_preview_sel")
-        prev_data = json.loads(st.session_state.bookings.get(duty_files[prev_sel]["key"],"[]"))
-        if prev_data:
-            df_prev = pd.DataFrame(prev_data[:50])
-            df_prev.columns = ["姓名","身分證（已存）","服務日期","時數(hr)"]
-            # Mask ID in preview
-            df_prev["身分證（已存）"] = df_prev["身分證（已存）"].apply(
-                lambda x: (str(x)[:3]+"***"+str(x)[-1]) if len(str(x))>=4 else "***")
-            st.dataframe(df_prev, use_container_width=True, hide_index=True)
-            if len(prev_data) > 50:
-                st.caption(f"（僅顯示前50筆，共 {len(prev_data)} 筆）")
-        else:
-            st.info("此檔案無資料。")
 
     if st.button("← 返回", key="bk_df"): nav("admin")
 
