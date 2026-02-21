@@ -403,50 +403,38 @@ def page_calendar():
     _bottom_row(months)
 
 def _bottom_row(months):
-    """Bottom of calendar: admin login (left) + personal download button (right)."""
+    """Bottom of calendar: personal download first, admin login at very bottom."""
     volunteers = st.session_state.get("volunteers", [])
     has_ids    = any(v.get("id","").strip() for v in volunteers)
     show_dl    = bool(volunteers and has_ids)
 
+    # ── 下載個人班表（全寬按鈕，放在管理員登入上方）──
     if show_dl:
-        c_admin, c_dl = st.columns(2)
-    else:
-        c_admin = st.container()
-
-    with c_admin:
-        st.markdown('<div class="admin-tiny">', unsafe_allow_html=True)
-        if st.button("管理員登入", key="admin_access", use_container_width=True):
-            nav("admin_login")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    if not show_dl:
-        return
-
-    with c_dl:
         if st.button("📋 下載個人班表", key="open_dl_panel", use_container_width=True):
             st.session_state.dl_panel_open = not st.session_state.get("dl_panel_open", False)
 
-    # Expandable download panel (below the row)
-    if st.session_state.get("dl_panel_open", False):
-        st.markdown("""
-        <div style="background:white;border:1.5px solid #bbb;border-radius:8px;
-                    padding:12px 14px 12px;margin-top:4px;">
-          <div style="font-weight:700;font-size:15px;margin-bottom:8px;">📋 下載個人班表</div>
-        </div>""", unsafe_allow_html=True)
+        if st.session_state.get("dl_panel_open", False):
+            st.markdown('<div style="background:white;border:1.5px solid #bbb;'
+                        'border-radius:8px;padding:12px 14px;margin-top:4px;">',
+                        unsafe_allow_html=True)
+            month_opts   = [(y, m) for y, m in sorted(months)]
+            month_labels = [f"{y}年{m}月" for y, m in month_opts]
+            m_sel = st.selectbox("月份", range(len(month_opts)),
+                                 format_func=lambda i: month_labels[i],
+                                 key="dl_month", label_visibility="collapsed")
+            sel_y, sel_m = month_opts[m_sel]
+            id_input = st.text_input("身分證", key="dl_id",
+                                     placeholder="輸入身分證字號（第一碼大小寫皆可）",
+                                     label_visibility="collapsed")
+            if st.button("🔍 驗證並產生下載", key="dl_btn", use_container_width=True):
+                _do_personal_download(id_input, sel_y, sel_m, volunteers)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        month_opts   = [(y, m) for y, m in sorted(months)]
-        month_labels = [f"{y}年{m}月" for y, m in month_opts]
-        m_sel = st.selectbox("月份", range(len(month_opts)),
-                             format_func=lambda i: month_labels[i],
-                             key="dl_month", label_visibility="collapsed")
-        sel_y, sel_m = month_opts[m_sel]
-
-        id_input = st.text_input("身分證", key="dl_id",
-                                 placeholder="輸入身分證字號（第一碼大小寫皆可）",
-                                 label_visibility="collapsed")
-
-        if st.button("🔍 驗證並產生下載", key="dl_btn", use_container_width=True):
-            _do_personal_download(id_input, sel_y, sel_m, volunteers)
+    # ── 管理員登入（最底部，小字灰色）──
+    st.markdown('<div class="admin-tiny">', unsafe_allow_html=True)
+    if st.button("管理員登入", key="admin_access"):
+        nav("admin_login")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _do_personal_download(id_input, sel_y, sel_m, volunteers):
