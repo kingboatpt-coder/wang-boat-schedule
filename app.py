@@ -1074,13 +1074,15 @@ def page_admin_duty_files():
 
     display_name = st.text_input("顯示名稱（例：114年服務時數）", key="df_new_name",
                                   placeholder="114年服務時數")
-    uploaded = st.file_uploader("選擇 Excel 檔案 (.xlsx)", type=["xlsx"],
+    uploaded = st.file_uploader("選擇 Excel 檔案 (.xlsx / .xls)", type=["xlsx","xls"],
                                  key="df_uploader")
 
     if uploaded and display_name.strip():
         if st.button("📤 解析並儲存", key="df_parse_btn", type="primary", use_container_width=True):
             try:
-                df_raw = pd.read_excel(uploaded, engine="openpyxl")
+                fname  = uploaded.name.lower()
+                engine = "xlrd" if fname.endswith(".xls") else "openpyxl"
+                df_raw = pd.read_excel(uploaded, engine=engine)
                 # ── Auto-detect columns ──
                 col_map = {}
                 for col in df_raw.columns:
