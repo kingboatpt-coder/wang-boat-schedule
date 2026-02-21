@@ -232,8 +232,18 @@ def init_state():
     except: st.session_state.open_days = []
     try: st.session_state.zone_names = json.loads(raw.get("SYS_ZONE_NAMES",json.dumps(DEFAULT_ZONE_NAMES)))
     except: st.session_state.zone_names = DEFAULT_ZONE_NAMES
-    try: st.session_state.volunteers = json.loads(raw.get("SYS_VOLUNTEERS","[]"))
-    except: st.session_state.volunteers = []
+    try:
+        raw_vol = json.loads(raw.get("SYS_VOLUNTEERS","[]"))
+        # Support both old format (list of strings) and new format (list of dicts)
+        vols = []
+        for v in raw_vol:
+            if isinstance(v, str):
+                vols.append({"name": v, "id": ""})
+            else:
+                vols.append(v)
+        st.session_state.volunteers = vols
+    except:
+        st.session_state.volunteers = []
     st.session_state.announcement   = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
@@ -392,7 +402,133 @@ def page_calendar():
     ann = st.session_state.announcement.replace("<","&lt;").replace(">","&gt;")
     st.markdown(f'<div class="ann-box"><div class="ann-title">公告</div>'
                 f'<div class="ann-body">{ann}</div></div>', unsafe_allow_html=True)
+
+    # ── Personal schedule download block ──
+    _personal_download_block(months)
+
     _admin_btn()
+
+def _personal_download_block(months):
+    """Personal schedule Excel download — shown on calendar page."""
+    volunteers = st.session_state.get("volunteers", [])
+    # Only show if volunteer list exists with IDs
+    has_ids = any(v.get("id","").strip() for v in volunteers)
+    if not volunteers or not has_ids:
+        return  # Hide block if no ID info configured yet
+
+    st.markdown("""
+    <div style="border:1.5px solid #bbb;border-radius:8px;background:white;
+                padding:12px 14px 10px;margin-top:8px;margin-bottom:4px;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:8px;">📋 下載個人班表</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.container():
+        # Month selector
+        month_opts = [(y, m) for y, m in sorted(months)]
+        month_labels = [f"{y}年{m}月" for y, m in month_opts]
+        m_sel = st.selectbox("選擇月份", range(len(month_opts)),
+                             format_func=lambda i: month_labels[i],
+                             key="dl_month", label_visibility="collapsed")
+        sel_y, sel_m = month_opts[m_sel]
+
+        # ID input
+        id_input = st.text_input("身分證字號", key="dl_id",
+                                 placeholder="輸入身分證字號（第一碼大小寫皆可）",
+                                 label_visibility="collapsed")
+
+        if st.button("🔍 驗證並下載", key="dl_btn", use_container_width=True):
+            if not id_input.strip():
+                st.error("請輸入身分證字號。")
+                return
+
+            # Normalize: first char uppercase, rest as-is
+            id_norm = id_input.strip()[0].upper() + id_input.strip()[1:]
+
+            # Find matching volunteer
+            matched = None
+            for v in volunteers:
+                vid = v.get("id","").strip()
+                if vid and (vid[0].upper() + vid[1:]) == id_norm:
+                    matched = v
+                    break
+
+            if not matched:
+                st.error("❌ 身分證字號不符，無法下載。請確認輸入是否正確。")
+                return
+
+            vol_name = matched["name"]
+            # Build personal schedule for selected month
+            min_d = date(sel_y, sel_m, 1)
+            max_d = date(sel_y, sel_m, calendar.monthrange(sel_y, sel_m)[1])
+            zone_names = st.session_state.zone_names
+            bookings   = st.session_state.bookings
+
+            rows = []
+            d_cur = min_d
+            while d_cur <= max_d:
+                d_str = d_cur.strftime("%Y-%m-%d")
+                for shift in ["上午","下午"]:
+                    for z_id, z_name in zip(INTERNAL_ZONES, zone_names):
+                        k = f"{d_str}_{shift}_{z_id}_1"
+                        v = bookings.get(k,"").strip()
+                        if v == vol_name:
+                            rows.append({
+                                "日期":   f"{d_cur.month}/{d_cur.day}(週{WD[d_cur.weekday()]})",
+                                "姓名":   vol_name,
+                                "上/下午": shift,
+                                "區域":   z_name,
+                                "時數":   3,
+                            })
+                d_cur += timedelta(days=1)
+
+            if not rows:
+                st.info(f"📭 {vol_name} 在 {sel_y}年{sel_m}月 尚無排班記錄。")
+                return
+
+            df = pd.DataFrame(rows)
+            total_hours = len(rows) * 3
+            # Add total row
+            total_row = pd.DataFrame([{"日期":"合計","姓名":"","上/下午":"","區域":"",
+                                        "時數": total_hours}])
+            df_out = pd.concat([df, total_row], ignore_index=True)
+
+            # Generate Excel or CSV
+            try:
+                import openpyxl  # noqa
+                buf = io.BytesIO()
+                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                    df_out.to_excel(writer, index=False, sheet_name="個人班表")
+                    ws_xl = writer.sheets["個人班表"]
+                    for col in ws_xl.columns:
+                        max_len = max(len(str(cell.value or "")) for cell in col)
+                        ws_xl.column_dimensions[col[0].column_letter].width = max_len + 4
+                    # Bold total row
+                    from openpyxl.styles import Font, PatternFill
+                    last_row = ws_xl.max_row
+                    for cell in ws_xl[last_row]:
+                        cell.font = Font(bold=True)
+                        cell.fill = PatternFill("solid", fgColor="FFFACD")
+                buf.seek(0)
+                st.download_button(
+                    f"⬇️ 下載 {vol_name} {sel_y}年{sel_m}月班表.xlsx",
+                    data=buf,
+                    file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except ImportError:
+                buf = io.StringIO()
+                df_out.to_csv(buf, index=False, encoding="utf-8-sig")
+                st.download_button(
+                    f"⬇️ 下載 {vol_name} {sel_y}年{sel_m}月班表.csv",
+                    data=buf.getvalue().encode("utf-8-sig"),
+                    file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            st.success(f"✅ 共 {len(rows)} 筆，總時數 {total_hours} 小時")
+
 
 def _admin_btn():
     st.markdown('<div class="admin-tiny">', unsafe_allow_html=True)
@@ -521,7 +657,8 @@ def page_week_grid():
             name_to_save = new_n.strip()
             # Validate against approved volunteer list (if list is non-empty)
             volunteers = st.session_state.get("volunteers", [])
-            if name_to_save and volunteers and name_to_save not in volunteers:
+            vol_names = [v["name"] for v in volunteers]
+            if name_to_save and vol_names and name_to_save not in vol_names:
                 st.error(f"❌ 「{name_to_save}」不在志工名單中，請確認姓名是否正確。")
                 st.stop()
             fresh = load_data()
@@ -783,82 +920,87 @@ def page_admin_zones():
 
 def page_admin_volunteers():
     st.markdown("## 👥 志工名單管理")
-    st.caption("只有名單中的姓名才能登記排班。名單為空時不做限制（開放任何人填寫）。")
+    st.caption("登錄姓名與身分證字號。排班時以姓名驗證；下載個人班表時以身分證驗證。")
 
-    volunteers = st.session_state.get("volunteers", [])
+    volunteers = st.session_state.get("volunteers", [])  # list of {name, id}
 
-    # ── Current list ──
+    # ── Current list table ──
     if volunteers:
         st.markdown(f"**目前登錄志工：共 {len(volunteers)} 人**")
-        # Display as chips / tag style
-        cols_per_row = 3
-        rows = [volunteers[i:i+cols_per_row] for i in range(0, len(volunteers), cols_per_row)]
-        for row in rows:
-            rcols = st.columns(cols_per_row)
-            for ci, name in enumerate(row):
-                with rcols[ci]:
-                    st.markdown(
-                        f'<div style="background:#4ECDC4;color:#000;border-radius:20px;'
-                        f'padding:4px 10px;text-align:center;font-size:14px;font-weight:600;'
-                        f'margin:2px 0;">{name}</div>',
+        # Table header
+        h1, h2, h3 = st.columns([3, 4, 1])
+        h1.markdown("**姓名**"); h2.markdown("**身分證**"); h3.markdown("**刪除**")
+        st.markdown('<hr style="margin:2px 0 6px;">', unsafe_allow_html=True)
+        to_delete = []
+        for i, v in enumerate(volunteers):
+            c1, c2, c3 = st.columns([3, 4, 1])
+            c1.markdown(f'<div style="padding:4px 0;font-weight:600;">{v["name"]}</div>',
                         unsafe_allow_html=True)
+            # Mask ID: show first 3 + *** + last 1
+            vid = v.get("id","")
+            masked = (vid[:3] + "***" + vid[-1]) if len(vid) >= 4 else ("***" if vid else "（未設定）")
+            c2.markdown(f'<div style="padding:4px 0;color:#666;font-size:13px;">{masked}</div>',
+                        unsafe_allow_html=True)
+            if c3.button("✕", key=f"del_v_{i}"):
+                to_delete.append(i)
+        if to_delete:
+            volunteers = [v for i,v in enumerate(volunteers) if i not in to_delete]
+            st.session_state.volunteers = volunteers
+            save_data("SYS_VOLUNTEERS", json.dumps(volunteers))
+            st.rerun()
     else:
         st.info("⚠️ 目前名單為空，任何人都可以填寫排班。")
 
     st.markdown("---")
 
-    # ── Bulk add ──
-    st.markdown("**批次新增志工**")
-    st.caption("每行一個名字，可一次貼上多位姓名。")
-    bulk_input = st.text_area(
-        "輸入姓名（每行一個）",
-        height=160,
-        key="vol_bulk",
-        placeholder="例：\n王小明\n李美花\n張雅婷",
-        label_visibility="collapsed"
-    )
-    if st.button("✅ 新增到名單", key="vol_add", type="primary", use_container_width=True):
-        new_names = [n.strip() for n in bulk_input.splitlines() if n.strip()]
-        if not new_names:
-            st.warning("請至少輸入一個名字。")
+    # ── Add / Edit single volunteer ──
+    st.markdown("**新增志工**")
+    a1, a2 = st.columns(2)
+    new_name = a1.text_input("姓名", key="vol_new_name", placeholder="例：王小明")
+    new_id   = a2.text_input("身分證字號", key="vol_new_id",
+                              placeholder="例：A123456789", type="password")
+    if st.button("＋ 新增", key="vol_add_one", use_container_width=True):
+        name = new_name.strip()
+        nid  = new_id.strip().upper() if new_id.strip() else ""
+        if not name:
+            st.warning("請輸入姓名。")
+        elif any(v["name"] == name for v in volunteers):
+            st.warning(f"「{name}」已在名單中。如需修改身分證，請先刪除再重新新增。")
         else:
-            added = []
-            for name in new_names:
-                if name not in volunteers:
-                    volunteers.append(name)
-                    added.append(name)
+            volunteers.append({"name": name, "id": nid})
             st.session_state.volunteers = volunteers
             save_data("SYS_VOLUNTEERS", json.dumps(volunteers))
-            if added:
-                st.success(f"✅ 已新增 {len(added)} 位：{'、'.join(added)}")
-            else:
-                st.info("這些姓名已在名單中，無需重複新增。")
+            st.success(f"✅ 已新增：{name}")
             st.rerun()
 
     st.markdown("---")
 
-    # ── Remove individual names ──
-    if volunteers:
-        st.markdown("**刪除志工**")
-        to_remove = st.multiselect(
-            "選擇要刪除的姓名",
-            options=volunteers,
-            label_visibility="collapsed"
-        )
-        if st.button("🗑️ 刪除選取", key="vol_rm", use_container_width=True):
-            if to_remove:
-                volunteers = [v for v in volunteers if v not in to_remove]
+    # ── Bulk add names only (no ID) ──
+    with st.expander("📋 批次匯入姓名（可事後再填身分證）"):
+        st.caption("每行一個姓名，不含身分證。身分證可在上方表格補齊。")
+        bulk_input = st.text_area("", height=130, key="vol_bulk",
+                                  placeholder="王小明\n李美花\n張雅婷")
+        if st.button("批次新增", key="vol_bulk_add", use_container_width=True):
+            new_names = [n.strip() for n in bulk_input.splitlines() if n.strip()]
+            added = []
+            for nm in new_names:
+                if not any(v["name"] == nm for v in volunteers):
+                    volunteers.append({"name": nm, "id": ""})
+                    added.append(nm)
+            if added:
                 st.session_state.volunteers = volunteers
                 save_data("SYS_VOLUNTEERS", json.dumps(volunteers))
-                st.success(f"✅ 已刪除：{'、'.join(to_remove)}")
+                st.success(f"✅ 新增 {len(added)} 位：{'、'.join(added)}")
                 st.rerun()
+            else:
+                st.info("所有姓名已存在，無需重複新增。")
 
-        st.markdown("---")
-        # ── Clear all ──
+    st.markdown("---")
+    if volunteers:
         if st.button("🚨 清空全部名單", key="vol_clear", use_container_width=True):
             st.session_state.volunteers = []
             save_data("SYS_VOLUNTEERS", json.dumps([]))
-            st.success("✅ 已清空志工名單（現在任何人都可以填表）。")
+            st.success("✅ 已清空志工名單。")
             st.rerun()
 
     if st.button("← 返回", key="bk_vol"): nav("admin")
