@@ -352,90 +352,178 @@ def page_calendar():
 def _bottom_row(months):
     volunteers = st.session_state.get("volunteers", [])
     has_ids    = any(v.get("id","").strip() for v in volunteers)
-    show_dl    = bool(volunteers and has_ids)
+    show_panel = bool(volunteers and has_ids)
 
-    if show_dl:
-        if st.button("📋 下載個人班表", key="open_dl_panel", use_container_width=True):
+    if show_panel:
+        # ── Toggle button ──
+        if st.button("📋 確認排班資訊", key="open_dl_panel", use_container_width=True):
             st.session_state.dl_panel_open = not st.session_state.get("dl_panel_open", False)
+            # Reset verification when closing
+            if not st.session_state.dl_panel_open:
+                st.session_state.pop("dl_verified_name", None)
+
         if st.session_state.get("dl_panel_open", False):
-            st.markdown('<div style="background:white;border:1.5px solid #bbb;'
-                        'border-radius:8px;padding:12px 14px;margin-top:4px;">',
-                        unsafe_allow_html=True)
-            month_opts   = [(y, m) for y, m in sorted(months)]
-            month_labels = [f"{y}年{m}月" for y, m in month_opts]
-            m_sel = st.selectbox("月份", range(len(month_opts)),
-                                 format_func=lambda i: month_labels[i],
-                                 key="dl_month", label_visibility="collapsed")
-            sel_y, sel_m = month_opts[m_sel]
-            id_input = st.text_input("身分證", key="dl_id",
-                                     placeholder="輸入身分證字號（第一碼大小寫皆可）",
-                                     label_visibility="collapsed")
-            if st.button("🔍 驗證並產生下載", key="dl_btn", use_container_width=True):
-                _do_personal_download(id_input, sel_y, sel_m, volunteers)
-            st.markdown('</div>', unsafe_allow_html=True)
+            _schedule_info_panel(months, volunteers)
 
     st.markdown('<div class="admin-tiny">', unsafe_allow_html=True)
     if st.button("管理員登入", key="admin_access"):
         nav("admin_login")
     st.markdown('</div>', unsafe_allow_html=True)
 
-def _do_personal_download(id_input, sel_y, sel_m, volunteers):
-    if not id_input.strip():
-        st.error("請輸入身分證字號。"); return
-    id_norm = id_input.strip()[0].upper() + id_input.strip()[1:]
-    matched = None
-    for v in volunteers:
-        vid = v.get("id","").strip()
-        if vid and (vid[0].upper() + vid[1:]) == id_norm:
-            matched = v; break
-    if not matched:
-        st.error("❌ 身分證字號不符，無法下載。"); return
-    vol_name   = matched["name"]
+
+def _schedule_info_panel(months, volunteers):
+    """Panel shown after clicking 確認排班資訊."""
+
+    verified_name = st.session_state.get("dl_verified_name", None)
+
+    st.markdown("""
+    <div style="background:white;border:1.5px solid #d1a84b;border-radius:10px;
+                padding:14px 14px 10px;margin-top:4px;">
+      <div style="font-weight:700;font-size:14px;color:#92400e;margin-bottom:10px;">
+        🪪 請輸入身分證字號以確認排班資訊
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    # ── Step 1: ID input (always shown) ──
+    id_col, btn_col = st.columns([3, 1])
+    with id_col:
+        id_input = st.text_input("身分證字號", key="dl_id",
+                                 placeholder="第一碼大小寫皆可",
+                                 label_visibility="collapsed")
+    with btn_col:
+        verify_clicked = st.button("驗證", key="dl_verify_btn", use_container_width=True)
+
+    if verify_clicked:
+        inp = id_input.strip()
+        if not inp:
+            st.error("請輸入身分證字號。")
+            st.session_state.pop("dl_verified_name", None)
+        else:
+            id_norm = inp[0].upper() + inp[1:]
+            matched = None
+            for v in volunteers:
+                vid = v.get("id","").strip()
+                if vid and (vid[0].upper() + vid[1:]) == id_norm:
+                    matched = v; break
+            if matched:
+                st.session_state.dl_verified_name = matched["name"]
+                verified_name = matched["name"]
+            else:
+                st.error("❌ 身分證字號不符，請重新確認。")
+                st.session_state.pop("dl_verified_name", None)
+                verified_name = None
+
+    # ── Step 2: Show schedule only after verification ──
+    if verified_name:
+        st.markdown(f'<div style="color:#16a34a;font-weight:700;font-size:13px;'
+                    f'margin:6px 0 4px;">✅ 驗證成功：{verified_name}</div>',
+                    unsafe_allow_html=True)
+
+        # Month selector
+        month_opts   = [(y, m) for y, m in sorted(months)]
+        month_labels = [f"{y}年{m}月" for y, m in month_opts]
+        m_sel = st.selectbox("開放月份", range(len(month_opts)),
+                             format_func=lambda i: month_labels[i],
+                             key="dl_month", label_visibility="collapsed")
+        sel_y, sel_m = month_opts[m_sel]
+
+        # Build schedule rows
+        zone_names = st.session_state.zone_names
+        bookings   = st.session_state.bookings
+        d_cur = date(sel_y, sel_m, 1)
+        d_end = date(sel_y, sel_m, calendar.monthrange(sel_y, sel_m)[1])
+        records = []
+        while d_cur <= d_end:
+            d_str = d_cur.strftime("%Y-%m-%d")
+            for shift in ["上午","下午"]:
+                for z_id, z_name in zip(INTERNAL_ZONES, zone_names):
+                    k = f"{d_str}_{shift}_{z_id}_1"
+                    if bookings.get(k,"").strip() == verified_name:
+                        records.append((d_cur, shift, z_name))
+            d_cur += timedelta(days=1)
+
+        total_hrs = len(records) * 3
+
+        # ── Schedule display card ──
+        if records:
+            rows_html = ""
+            for i, (d_obj, shift, zone) in enumerate(records):
+                bg = "#fffbeb" if i % 2 == 0 else "#ffffff"
+                date_lbl = f"{d_obj.month}/{d_obj.day}&nbsp;<span style='color:#888;font-size:11px;'>(週{WD[d_obj.weekday()]})</span>"
+                rows_html += (
+                    f'<div style="display:flex;align-items:center;padding:7px 10px;'
+                    f'background:{bg};border-bottom:1px solid #f0e8d0;gap:6px;">'
+                    f'<span style="flex:0 0 70px;font-weight:700;font-size:13px;">{date_lbl}</span>'
+                    f'<span style="flex:0 0 32px;background:#3b82f6;color:white;border-radius:4px;'
+                    f'font-size:11px;font-weight:600;text-align:center;padding:2px 4px;">{shift}</span>'
+                    f'<span style="flex:1;font-size:12px;color:#374151;">{zone}</span>'
+                    f'</div>'
+                )
+            total_html = (
+                f'<div style="display:flex;justify-content:flex-end;align-items:center;'
+                f'padding:8px 12px;background:#fef3c7;border-top:2px solid #f59e0b;">'
+                f'<span style="font-size:13px;font-weight:700;color:#92400e;">'
+                f'本月預計排班總時數&nbsp;&nbsp;<span style="font-size:20px;color:#dc2626;">'
+                f'{total_hrs}</span>&nbsp;小時</span></div>'
+            )
+            st.markdown(
+                f'<div style="border:1.5px solid #f59e0b;border-radius:8px;'
+                f'overflow:hidden;margin-top:6px;">'
+                f'{rows_html}{total_html}</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
+                f'padding:14px;text-align:center;color:#6b7280;font-size:13px;margin-top:6px;">'
+                f'📭 {sel_y}年{sel_m}月 尚無排班記錄</div>',
+                unsafe_allow_html=True
+            )
+
+        # ── Download button (secondary) ──
+        if records:
+            st.markdown('<div style="margin-top:8px;">', unsafe_allow_html=True)
+            if st.button("⬇️ 下載 Excel 班表", key="dl_excel_btn", use_container_width=True):
+                _do_export_excel(verified_name, sel_y, sel_m, records, total_hrs)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _do_export_excel(vol_name, sel_y, sel_m, records, total_hrs):
+    """Generate and trigger Excel/CSV download."""
     zone_names = st.session_state.zone_names
-    bookings   = st.session_state.bookings
-    min_d      = date(sel_y, sel_m, 1)
-    max_d      = date(sel_y, sel_m, calendar.monthrange(sel_y, sel_m)[1])
-    rows = []
-    d_cur = min_d
-    while d_cur <= max_d:
-        d_str = d_cur.strftime("%Y-%m-%d")
-        for shift in ["上午","下午"]:
-            for z_id, z_name in zip(INTERNAL_ZONES, zone_names):
-                k = f"{d_str}_{shift}_{z_id}_1"
-                if bookings.get(k,"").strip() == vol_name:
-                    rows.append({"日期":f"{d_cur.month}/{d_cur.day}(週{WD[d_cur.weekday()]})",
-                                 "姓名":vol_name,"上/下午":shift,"區域":z_name,"時數(hr)":3})
-        d_cur += timedelta(days=1)
-    if not rows:
-        st.info(f"📭 {vol_name} 在 {sel_y}年{sel_m}月 尚無排班記錄。"); return
-    total_hrs = len(rows) * 3
-    df_out = pd.concat([pd.DataFrame(rows),
-                        pd.DataFrame([{"日期":"合計","姓名":"","上/下午":"","區域":"","時數(hr)":total_hrs}])],
-                       ignore_index=True)
-    st.markdown(f"**✅ 驗證成功：{vol_name}**")
-    st.caption(f"共 {len(rows)} 筆，總時數 {total_hrs} 小時")
-    st.dataframe(df_out, hide_index=True, use_container_width=True)
+    rows = [{"日期": f"{d.month}/{d.day}(週{WD[d.weekday()]})",
+             "上/下午": shift, "區域": zone, "時數(hr)": 3}
+            for d, shift, zone in records]
+    df_out = pd.concat([
+        pd.DataFrame(rows),
+        pd.DataFrame([{"日期":"合計","上/下午":"","區域":"","時數(hr)":total_hrs}])
+    ], ignore_index=True)
+
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill
+        from openpyxl.styles import Font, PatternFill, Alignment
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df_out.to_excel(writer, index=False, sheet_name="個人班表")
             ws_xl = writer.sheets["個人班表"]
             for col in ws_xl.columns:
-                ws_xl.column_dimensions[col[0].column_letter].width = max(len(str(c.value or "")) for c in col) + 4
+                ws_xl.column_dimensions[col[0].column_letter].width = \
+                    max(len(str(c.value or "")) for c in col) + 4
             for cell in ws_xl[ws_xl.max_row]:
-                cell.font = Font(bold=True); cell.fill = PatternFill("solid", fgColor="FFFACD")
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill("solid", fgColor="FFF3CD")
         buf.seek(0)
-        st.download_button("⬇️ 下載 Excel 檔案", data=buf,
+        st.download_button("⬇️ 點此下載 Excel 檔案", data=buf,
                            file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            use_container_width=True, type="primary")
     except ImportError:
         csv_str = df_out.to_csv(index=False, encoding="utf-8-sig")
-        st.download_button("⬇️ 下載 .csv 檔案", data=csv_str.encode("utf-8-sig"),
+        st.download_button("⬇️ 點此下載 CSV 檔案", data=csv_str.encode("utf-8-sig"),
                            file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.csv",
                            mime="text/csv", use_container_width=True, type="primary")
+
+
 
 # ── Page: Week Grid ────────────────────────────────────────
 def page_week_grid():
