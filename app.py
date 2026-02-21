@@ -330,12 +330,8 @@ def page_calendar():
     else:
         idx, year, month, date_text = 0, date.today().year, date.today().month, ""
 
-    st.markdown(f'<div class="header-row">'
-                f'<span class="header-title">志工排班表</span>'
-                f'<span class="header-date">{date_text}</span></div>', unsafe_allow_html=True)
-
     if not months:
-        st.warning("⚠️ 暫無開放月份"); _admin_btn(); return
+        st.warning("⚠️ 暫無開放月份"); _bottom_row([]); return
 
     weeks     = get_weeks(year, month)
     sel_start = st.session_state.sel_week_start
