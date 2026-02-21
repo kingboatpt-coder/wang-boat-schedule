@@ -403,134 +403,142 @@ def page_calendar():
     st.markdown(f'<div class="ann-box"><div class="ann-title">公告</div>'
                 f'<div class="ann-body">{ann}</div></div>', unsafe_allow_html=True)
 
-    # ── Personal schedule download block ──
-    _personal_download_block(months)
+    # ── Bottom row: Admin login (left) + Personal download (right) ──
+    _bottom_row(months)
 
-    _admin_btn()
-
-def _personal_download_block(months):
-    """Personal schedule Excel download — shown on calendar page."""
+def _bottom_row(months):
+    """Bottom of calendar: admin login (left) + personal download button (right)."""
     volunteers = st.session_state.get("volunteers", [])
-    # Only show if volunteer list exists with IDs
-    has_ids = any(v.get("id","").strip() for v in volunteers)
-    if not volunteers or not has_ids:
-        return  # Hide block if no ID info configured yet
+    has_ids    = any(v.get("id","").strip() for v in volunteers)
+    show_dl    = bool(volunteers and has_ids)
 
-    st.markdown("""
-    <div style="border:1.5px solid #bbb;border-radius:8px;background:white;
-                padding:12px 14px 10px;margin-top:8px;margin-bottom:4px;">
-      <div style="font-weight:700;font-size:15px;margin-bottom:8px;">📋 下載個人班表</div>
-    </div>
-    """, unsafe_allow_html=True)
+    if show_dl:
+        c_admin, c_dl = st.columns(2)
+    else:
+        c_admin = st.container()
 
-    with st.container():
-        # Month selector
-        month_opts = [(y, m) for y, m in sorted(months)]
+    with c_admin:
+        st.markdown('<div class="admin-tiny">', unsafe_allow_html=True)
+        if st.button("管理員登入", key="admin_access", use_container_width=True):
+            nav("admin_login")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if not show_dl:
+        return
+
+    with c_dl:
+        if st.button("📋 下載個人班表", key="open_dl_panel", use_container_width=True):
+            st.session_state.dl_panel_open = not st.session_state.get("dl_panel_open", False)
+
+    # Expandable download panel (below the row)
+    if st.session_state.get("dl_panel_open", False):
+        st.markdown("""
+        <div style="background:white;border:1.5px solid #bbb;border-radius:8px;
+                    padding:12px 14px 12px;margin-top:4px;">
+          <div style="font-weight:700;font-size:15px;margin-bottom:8px;">📋 下載個人班表</div>
+        </div>""", unsafe_allow_html=True)
+
+        month_opts   = [(y, m) for y, m in sorted(months)]
         month_labels = [f"{y}年{m}月" for y, m in month_opts]
-        m_sel = st.selectbox("選擇月份", range(len(month_opts)),
+        m_sel = st.selectbox("月份", range(len(month_opts)),
                              format_func=lambda i: month_labels[i],
                              key="dl_month", label_visibility="collapsed")
         sel_y, sel_m = month_opts[m_sel]
 
-        # ID input
-        id_input = st.text_input("身分證字號", key="dl_id",
+        id_input = st.text_input("身分證", key="dl_id",
                                  placeholder="輸入身分證字號（第一碼大小寫皆可）",
                                  label_visibility="collapsed")
 
-        if st.button("🔍 驗證並下載", key="dl_btn", use_container_width=True):
-            if not id_input.strip():
-                st.error("請輸入身分證字號。")
-                return
+        if st.button("🔍 驗證並產生下載", key="dl_btn", use_container_width=True):
+            _do_personal_download(id_input, sel_y, sel_m, volunteers)
 
-            # Normalize: first char uppercase, rest as-is
-            id_norm = id_input.strip()[0].upper() + id_input.strip()[1:]
 
-            # Find matching volunteer
-            matched = None
-            for v in volunteers:
-                vid = v.get("id","").strip()
-                if vid and (vid[0].upper() + vid[1:]) == id_norm:
-                    matched = v
-                    break
+def _do_personal_download(id_input, sel_y, sel_m, volunteers):
+    """Validate ID, build Excel, show download button."""
+    if not id_input.strip():
+        st.error("請輸入身分證字號。")
+        return
 
-            if not matched:
-                st.error("❌ 身分證字號不符，無法下載。請確認輸入是否正確。")
-                return
+    id_norm = id_input.strip()[0].upper() + id_input.strip()[1:]
+    matched = None
+    for v in volunteers:
+        vid = v.get("id","").strip()
+        if vid and (vid[0].upper() + vid[1:]) == id_norm:
+            matched = v
+            break
 
-            vol_name = matched["name"]
-            # Build personal schedule for selected month
-            min_d = date(sel_y, sel_m, 1)
-            max_d = date(sel_y, sel_m, calendar.monthrange(sel_y, sel_m)[1])
-            zone_names = st.session_state.zone_names
-            bookings   = st.session_state.bookings
+    if not matched:
+        st.error("❌ 身分證字號不符，無法下載。")
+        return
 
-            rows = []
-            d_cur = min_d
-            while d_cur <= max_d:
-                d_str = d_cur.strftime("%Y-%m-%d")
-                for shift in ["上午","下午"]:
-                    for z_id, z_name in zip(INTERNAL_ZONES, zone_names):
-                        k = f"{d_str}_{shift}_{z_id}_1"
-                        v = bookings.get(k,"").strip()
-                        if v == vol_name:
-                            rows.append({
-                                "日期":   f"{d_cur.month}/{d_cur.day}(週{WD[d_cur.weekday()]})",
-                                "姓名":   vol_name,
-                                "上/下午": shift,
-                                "區域":   z_name,
-                                "時數":   3,
-                            })
-                d_cur += timedelta(days=1)
+    vol_name   = matched["name"]
+    zone_names = st.session_state.zone_names
+    bookings   = st.session_state.bookings
+    min_d      = date(sel_y, sel_m, 1)
+    max_d      = date(sel_y, sel_m, calendar.monthrange(sel_y, sel_m)[1])
 
-            if not rows:
-                st.info(f"📭 {vol_name} 在 {sel_y}年{sel_m}月 尚無排班記錄。")
-                return
+    rows  = []
+    d_cur = min_d
+    while d_cur <= max_d:
+        d_str = d_cur.strftime("%Y-%m-%d")
+        for shift in ["上午","下午"]:
+            for z_id, z_name in zip(INTERNAL_ZONES, zone_names):
+                k = f"{d_str}_{shift}_{z_id}_1"
+                if bookings.get(k,"").strip() == vol_name:
+                    rows.append({
+                        "日期":    f"{d_cur.month}/{d_cur.day}(週{WD[d_cur.weekday()]})",
+                        "姓名":    vol_name,
+                        "上/下午": shift,
+                        "區域":    z_name,
+                        "時數(hr)": 3,
+                    })
+        d_cur += timedelta(days=1)
 
-            df = pd.DataFrame(rows)
-            total_hours = len(rows) * 3
-            # Add total row
-            total_row = pd.DataFrame([{"日期":"合計","姓名":"","上/下午":"","區域":"",
-                                        "時數": total_hours}])
-            df_out = pd.concat([df, total_row], ignore_index=True)
+    if not rows:
+        st.info(f"📭 {vol_name} 在 {sel_y}年{sel_m}月 尚無排班記錄。")
+        return
 
-            # Generate Excel or CSV
-            try:
-                import openpyxl  # noqa
-                buf = io.BytesIO()
-                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                    df_out.to_excel(writer, index=False, sheet_name="個人班表")
-                    ws_xl = writer.sheets["個人班表"]
-                    for col in ws_xl.columns:
-                        max_len = max(len(str(cell.value or "")) for cell in col)
-                        ws_xl.column_dimensions[col[0].column_letter].width = max_len + 4
-                    # Bold total row
-                    from openpyxl.styles import Font, PatternFill
-                    last_row = ws_xl.max_row
-                    for cell in ws_xl[last_row]:
-                        cell.font = Font(bold=True)
-                        cell.fill = PatternFill("solid", fgColor="FFFACD")
-                buf.seek(0)
-                st.download_button(
-                    f"⬇️ 下載 {vol_name} {sel_y}年{sel_m}月班表.xlsx",
-                    data=buf,
-                    file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                )
-            except ImportError:
-                buf = io.StringIO()
-                df_out.to_csv(buf, index=False, encoding="utf-8-sig")
-                st.download_button(
-                    f"⬇️ 下載 {vol_name} {sel_y}年{sel_m}月班表.csv",
-                    data=buf.getvalue().encode("utf-8-sig"),
-                    file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                )
-            st.success(f"✅ 共 {len(rows)} 筆，總時數 {total_hours} 小時")
+    total_hrs = len(rows) * 3
+    df_out = pd.concat([
+        pd.DataFrame(rows),
+        pd.DataFrame([{"日期":"合計","姓名":"","上/下午":"","區域":"","時數(hr)": total_hrs}])
+    ], ignore_index=True)
+
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df_out.to_excel(writer, index=False, sheet_name="個人班表")
+            ws_xl = writer.sheets["個人班表"]
+            for col in ws_xl.columns:
+                ws_xl.column_dimensions[col[0].column_letter].width = \
+                    max(len(str(c.value or "")) for c in col) + 4
+            for cell in ws_xl[ws_xl.max_row]:
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill("solid", fgColor="FFFACD")
+        buf.seek(0)
+        st.download_button(
+            f"⬇️ {vol_name} {sel_y}/{sel_m:02d} 班表.xlsx",
+            data=buf,
+            file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+    except ImportError:
+        csv_str = df_out.to_csv(index=False, encoding="utf-8-sig")
+        st.download_button(
+            f"⬇️ {vol_name} {sel_y}/{sel_m:02d} 班表.csv",
+            data=csv_str.encode("utf-8-sig"),
+            file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+    st.success(f"✅ {vol_name}　共 {len(rows)} 筆　總時數 {total_hrs} 小時")
 
 
 def _admin_btn():
+    """Legacy stub — now handled by _bottom_row."""
     st.markdown('<div class="admin-tiny">', unsafe_allow_html=True)
     if st.button("管理員登入", key="admin_access"):
         nav("admin_login")
@@ -976,24 +984,39 @@ def page_admin_volunteers():
     st.markdown("---")
 
     # ── Bulk add names only (no ID) ──
-    with st.expander("📋 批次匯入姓名（可事後再填身分證）"):
-        st.caption("每行一個姓名，不含身分證。身分證可在上方表格補齊。")
-        bulk_input = st.text_area("", height=130, key="vol_bulk",
-                                  placeholder="王小明\n李美花\n張雅婷")
-        if st.button("批次新增", key="vol_bulk_add", use_container_width=True):
-            new_names = [n.strip() for n in bulk_input.splitlines() if n.strip()]
-            added = []
-            for nm in new_names:
-                if not any(v["name"] == nm for v in volunteers):
-                    volunteers.append({"name": nm, "id": ""})
+    with st.expander("📋 批次匯入（姓名 + 身分證）"):
+        st.caption("每行格式：**姓名,身分證**（逗號分隔）\n也可只輸入姓名，身分證留空事後補填。")
+        bulk_input = st.text_area("", height=160, key="vol_bulk",
+                                  placeholder="王小明,A123456789\n李美花,B234567890\n張雅婷\n陳大文,C345678901")
+        if st.button("批次匯入", key="vol_bulk_add", use_container_width=True, type="primary"):
+            lines = [l.strip() for l in bulk_input.splitlines() if l.strip()]
+            added, updated, skipped = [], [], []
+            for line in lines:
+                parts = [p.strip() for p in line.split(",", 1)]
+                nm  = parts[0]
+                nid = parts[1].upper() if len(parts) > 1 and parts[1] else ""
+                if not nm:
+                    continue
+                existing = next((v for v in volunteers if v["name"] == nm), None)
+                if existing is None:
+                    volunteers.append({"name": nm, "id": nid})
                     added.append(nm)
-            if added:
+                elif nid and existing.get("id","") != nid:
+                    # Update ID if provided and different
+                    existing["id"] = nid
+                    updated.append(nm)
+                else:
+                    skipped.append(nm)
+            if added or updated:
                 st.session_state.volunteers = volunteers
                 save_data("SYS_VOLUNTEERS", json.dumps(volunteers))
-                st.success(f"✅ 新增 {len(added)} 位：{'、'.join(added)}")
+                msgs = []
+                if added:   msgs.append(f"新增 {len(added)} 位：{'、'.join(added)}")
+                if updated: msgs.append(f"更新身分證 {len(updated)} 位：{'、'.join(updated)}")
+                st.success("✅ " + "　".join(msgs))
                 st.rerun()
             else:
-                st.info("所有姓名已存在，無需重複新增。")
+                st.info(f"所有姓名已存在且無需更新。（{len(skipped)} 筆略過）")
 
     st.markdown("---")
     if volunteers:
