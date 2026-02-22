@@ -778,7 +778,7 @@ def page_week_grid():
             field_label = "輸入身分證字號以取消排班"
             placeholder = "輸入本人身分證字號（第一碼大小寫皆可）"
         else:
-            field_label = "輸入姓名以登記排班"
+            field_label = "輸入姓名以登記排班, 若要刪除則須輸入身分證號"
             placeholder = "輸入姓名"
 
         entry_val = st.text_input(field_label, key="in_n", placeholder=placeholder)
