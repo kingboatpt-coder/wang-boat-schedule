@@ -420,7 +420,7 @@ def _bottom_row(months):
 
     if show_panel:
         # ── Toggle button ──
-        if st.button("📋 確認排班資訊", key="open_dl_panel", use_container_width=True):
+        if st.button("📋 確認已排班 / 累計時數資訊", key="open_dl_panel", use_container_width=True):
             st.session_state.dl_panel_open = not st.session_state.get("dl_panel_open", False)
             # Reset verification when closing
             if not st.session_state.dl_panel_open:
@@ -436,7 +436,7 @@ def _bottom_row(months):
 
 
 def _schedule_info_panel(months, volunteers):
-    """Panel shown after clicking 確認排班資訊."""
+    """Panel shown after clicking 確認已排班 / 累計時數資訊."""
     verified_name = st.session_state.get("dl_verified_name", None)
     verified_id   = st.session_state.get("dl_verified_id", None)
 
@@ -817,7 +817,7 @@ def page_week_grid():
             # ── CASE 2: Cell is EMPTY → booking flow ──
             else:
                 if not entry:
-                    st.error("❌ 請輸入姓名以登記排班。")
+                    st.error("❌ 請輸入姓名以登記排班, 若要刪除則須輸入身分證號。")
                     st.stop()
                 if has_vol_list and entry not in vol_names:
                     st.error(f"❌ 「{entry}」不在志工名單中，請確認姓名是否正確。")
