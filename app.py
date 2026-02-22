@@ -550,7 +550,7 @@ def _schedule_info_panel(months, volunteers):
 
 
 def _duty_history_section(verified_name, verified_id):
-    """Collapsible: 查看已累計執勤時數."""
+    """Collapsible: 查看已排班累計執勤時數."""
     duty_files = st.session_state.get("duty_files", [])
     if not duty_files:
         return
@@ -558,7 +558,7 @@ def _duty_history_section(verified_name, verified_id):
     open_key = "duty_hist_open"
     is_open  = st.session_state.get(open_key, False)
     arrow    = "▲" if is_open else "▼"
-    if st.button(f"　查看已累計執勤時數　{arrow}", key="duty_hist_toggle", use_container_width=True):
+    if st.button(f"　查看已排班累計執勤時數　{arrow}", key="duty_hist_toggle", use_container_width=True):
         st.session_state[open_key] = not is_open
         st.rerun()
 
