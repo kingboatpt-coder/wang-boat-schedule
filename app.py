@@ -774,7 +774,7 @@ def page_week_grid():
             field_label = "輸入身分證字號以取消排班"
             placeholder = "輸入本人身分證字號（第一碼大小寫皆可）"
         else:
-            field_label = "輸入姓名以登記排班"
+            field_label = "輸入姓名以登記排班，若要取消排班請輸入當事人身分證號"
             placeholder = "輸入姓名"
 
         entry_val = st.text_input(field_label, key="in_n", placeholder=placeholder)
@@ -810,7 +810,7 @@ def page_week_grid():
             # ── CASE 2: Cell is EMPTY → booking flow ──
             else:
                 if not entry:
-                    st.error("❌ 請輸入姓名以登記排班。")
+                    st.error("❌ 請輸入姓名以登記排班，若要取消排班請輸入當事人身分證號。")
                     st.stop()
                 if has_vol_list and entry not in vol_names:
                     st.error(f"❌ 「{entry}」不在志工名單中，請確認姓名是否正確。")
