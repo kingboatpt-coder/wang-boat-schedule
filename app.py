@@ -172,28 +172,84 @@ def init_connection():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     return gspread.authorize(creds)
 
+CHUNK_SIZE = 40000  # Google Sheets cell limit ~50k chars; use 40k to be safe
+
 def load_data():
     try:
         client = init_connection()
         if client is None: return {}
         sheet = client.open("volunteer_db").sheet1
         df = pd.DataFrame(sheet.get_all_records())
-        d = {}
+        raw = {}
         if not df.empty:
             df.columns = [str(c).lower() for c in df.columns]
             if "key" in df.columns and "value" in df.columns:
-                for _,row in df.iterrows(): d[str(row["key"])]=str(row["value"])
-        return d
+                for _, row in df.iterrows():
+                    raw[str(row["key"])] = str(row["value"])
+        # ── Reassemble chunked keys ──
+        # Keys like "SYS_DUTY_DATA_0__chunk_1" → merged back into "SYS_DUTY_DATA_0"
+        assembled = {}
+        chunk_keys = [k for k in raw if "__chunk_" in k]
+        base_keys  = set(k.split("__chunk_")[0] for k in chunk_keys)
+        for base in base_keys:
+            parts = []
+            i = 0
+            while True:
+                ck = f"{base}__chunk_{i}"
+                if ck in raw:
+                    parts.append(raw[ck])
+                    i += 1
+                else:
+                    break
+            if parts:
+                assembled[base] = "".join(parts)
+        # Merge: non-chunk keys first, then assembled (overwrites if both exist)
+        result = {k: v for k, v in raw.items() if "__chunk_" not in k}
+        result.update(assembled)
+        return result
     except: return {}
 
 def save_data(key, value):
+    """Save key-value to Google Sheets. Automatically chunks large values."""
     try:
         client = init_connection()
         if client is None: return
         sheet = client.open("volunteer_db").sheet1
-        try:
-            cell = sheet.find(key); sheet.update_cell(cell.row,2,value)
-        except: sheet.append_row([key,value])
+        all_vals = sheet.get_all_values()
+        key_to_row = {str(r[0]): idx+1 for idx, r in enumerate(all_vals) if r}
+
+        if len(str(value)) <= CHUNK_SIZE:
+            # ── Small value: single cell ──
+            # First delete any existing chunks for this key
+            chunk_rows = sorted(
+                [row for k, row in key_to_row.items() if k.startswith(f"{key}__chunk_")],
+                reverse=True)
+            for r in chunk_rows:
+                sheet.delete_rows(r)
+                # Refresh row index after deletion
+                all_vals = sheet.get_all_values()
+                key_to_row = {str(r2[0]): idx+1 for idx, r2 in enumerate(all_vals) if r2}
+            if key in key_to_row:
+                sheet.update_cell(key_to_row[key], 2, value)
+            else:
+                sheet.append_row([key, value])
+        else:
+            # ── Large value: split into chunks ──
+            chunks = [value[i:i+CHUNK_SIZE] for i in range(0, len(value), CHUNK_SIZE)]
+            # Delete old plain key if exists
+            if key in key_to_row:
+                sheet.delete_rows(key_to_row[key])
+                all_vals = sheet.get_all_values()
+                key_to_row = {str(r[0]): idx+1 for idx, r in enumerate(all_vals) if r}
+            # Write each chunk
+            for ci, chunk in enumerate(chunks):
+                ck = f"{key}__chunk_{ci}"
+                if ck in key_to_row:
+                    sheet.update_cell(key_to_row[ck], 2, chunk)
+                else:
+                    sheet.append_row([ck, chunk])
+                    all_vals = sheet.get_all_values()
+                    key_to_row = {str(r[0]): idx+1 for idx, r in enumerate(all_vals) if r}
     except Exception as e: st.error(f"❌ 存檔失敗: {e}")
 
 # ── State ──────────────────────────────────────────────────
@@ -221,10 +277,11 @@ def init_state():
     st.session_state.announcement   = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
     try: st.session_state.duty_files = json.loads(raw.get("SYS_DUTY_FILES","[]"))
     except: st.session_state.duty_files = []
-    # Load each duty data file into bookings cache (needed for mobile/new sessions)
+    # Duty data is already in raw (load_data assembles chunks automatically)
+    # Just ensure each duty data key is accessible in bookings
     for df_meta in st.session_state.duty_files:
         dk = df_meta.get("key","")
-        if dk and dk not in st.session_state.bookings and dk in raw:
+        if dk and dk in raw:
             st.session_state.bookings[dk] = raw[dk]
     st.session_state.page           = "calendar"
     st.session_state.month_idx      = 0
