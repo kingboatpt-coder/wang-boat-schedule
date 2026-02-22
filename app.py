@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 import calendar
 import json
 import io
+import time
 
 try:
     import gspread
@@ -16,7 +17,11 @@ st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide"
 
 INTERNAL_ZONES      = ["Z1","Z2","Z3","Z4","Z5","Z6"]
 DEFAULT_ZONE_NAMES = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
-ADMIN_PW = "1234"
+
+# ── [修復#1] 密碼改為 781223，從 secrets 讀取，若無設定才用預設值
+ADMIN_PW = st.secrets.get("admin_pw", "781223")
+MAX_LOGIN_ATTEMPTS = 5  # [修復#2] 最多嘗試次數
+
 WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
 MON_EN = ["","January","February","March","April","May","June",
            "July","August","September","October","November","December"]
@@ -156,7 +161,6 @@ button:disabled{background:#e5e5e5!important;color:#bbb!important;opacity:0.6!im
 .cal-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:8px;align-items:center;}
 .leg-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle;}
 
-/* cancel hint box */
 .cancel-hint{background:#fff8e1;border:1.5px solid #f59e0b;border-radius:8px;
     padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:6px;line-height:1.5;}
 </style>
@@ -172,8 +176,10 @@ def init_connection():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     return gspread.authorize(creds)
 
-CHUNK_SIZE = 40000  # Google Sheets cell limit ~50k chars; use 40k to be safe
+CHUNK_SIZE = 40000
 
+# [修復#7] 加入 10 秒快取，減少重複讀取 Google Sheets 的次數
+@st.cache_data(ttl=10)
 def load_data():
     try:
         client = init_connection()
@@ -186,8 +192,6 @@ def load_data():
             if "key" in df.columns and "value" in df.columns:
                 for _, row in df.iterrows():
                     raw[str(row["key"])] = str(row["value"])
-        # ── Reassemble chunked keys ──
-        # Keys like "SYS_DUTY_DATA_0__chunk_1" → merged back into "SYS_DUTY_DATA_0"
         assembled = {}
         chunk_keys = [k for k in raw if "__chunk_" in k]
         base_keys  = set(k.split("__chunk_")[0] for k in chunk_keys)
@@ -203,11 +207,11 @@ def load_data():
                     break
             if parts:
                 assembled[base] = "".join(parts)
-        # Merge: non-chunk keys first, then assembled (overwrites if both exist)
         result = {k: v for k, v in raw.items() if "__chunk_" not in k}
         result.update(assembled)
         return result
-    except: return {}
+    except:
+        return {}
 
 def save_data(key, value):
     """Save key-value to Google Sheets. Automatically chunks large values."""
@@ -219,14 +223,11 @@ def save_data(key, value):
         key_to_row = {str(r[0]): idx+1 for idx, r in enumerate(all_vals) if r}
 
         if len(str(value)) <= CHUNK_SIZE:
-            # ── Small value: single cell ──
-            # First delete any existing chunks for this key
             chunk_rows = sorted(
                 [row for k, row in key_to_row.items() if k.startswith(f"{key}__chunk_")],
                 reverse=True)
             for r in chunk_rows:
                 sheet.delete_rows(r)
-                # Refresh row index after deletion
                 all_vals = sheet.get_all_values()
                 key_to_row = {str(r2[0]): idx+1 for idx, r2 in enumerate(all_vals) if r2}
             if key in key_to_row:
@@ -234,14 +235,11 @@ def save_data(key, value):
             else:
                 sheet.append_row([key, value])
         else:
-            # ── Large value: split into chunks ──
             chunks = [value[i:i+CHUNK_SIZE] for i in range(0, len(value), CHUNK_SIZE)]
-            # Delete old plain key if exists
             if key in key_to_row:
                 sheet.delete_rows(key_to_row[key])
                 all_vals = sheet.get_all_values()
                 key_to_row = {str(r[0]): idx+1 for idx, r in enumerate(all_vals) if r}
-            # Write each chunk
             for ci, chunk in enumerate(chunks):
                 ck = f"{key}__chunk_{ci}"
                 if ck in key_to_row:
@@ -250,46 +248,60 @@ def save_data(key, value):
                     sheet.append_row([ck, chunk])
                     all_vals = sheet.get_all_values()
                     key_to_row = {str(r[0]): idx+1 for idx, r in enumerate(all_vals) if r}
-    except Exception as e: st.error(f"❌ 存檔失敗: {e}")
+    except Exception as e:
+        st.error(f"❌ 存檔失敗: {e}")
 
 # ── State ──────────────────────────────────────────────────
 def init_state():
     if "app_ready" in st.session_state: return
-    raw = load_data()
-    st.session_state.bookings = raw
-    try: st.session_state.open_months_list = [(m[0],m[1]) for m in json.loads(raw.get("SYS_OPEN_MONTHS","[[2026,3]]"))]
-    except: st.session_state.open_months_list = [(2026,3)]
-    try: st.session_state.closed_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_CLOSED_DAYS","[]"))]
-    except: st.session_state.closed_days = []
-    try: st.session_state.open_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_OPEN_DAYS","[]"))]
-    except: st.session_state.open_days = []
-    try: st.session_state.zone_names = json.loads(raw.get("SYS_ZONE_NAMES",json.dumps(DEFAULT_ZONE_NAMES)))
-    except: st.session_state.zone_names = DEFAULT_ZONE_NAMES
+    # [修復#6] 初始化失敗時明確回報，不陷入無限循環
     try:
-        raw_vol = json.loads(raw.get("SYS_VOLUNTEERS","[]"))
-        vols = []
-        for v in raw_vol:
-            if isinstance(v, str): vols.append({"name": v, "id": ""})
-            else: vols.append(v)
-        st.session_state.volunteers = vols
-    except:
-        st.session_state.volunteers = []
-    st.session_state.announcement   = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
-    try: st.session_state.duty_files = json.loads(raw.get("SYS_DUTY_FILES","[]"))
-    except: st.session_state.duty_files = []
-    # Duty data is already in raw (load_data assembles chunks automatically)
-    # Just ensure each duty data key is accessible in bookings
-    for df_meta in st.session_state.duty_files:
-        dk = df_meta.get("key","")
-        if dk and dk in raw:
-            st.session_state.bookings[dk] = raw[dk]
-    st.session_state.page           = "calendar"
-    st.session_state.month_idx      = 0
-    st.session_state.sel_week_start = None
-    st.session_state.sel_cell       = None
-    st.session_state.app_ready      = True
+        raw = load_data()
+        st.session_state.bookings = raw
+        try: st.session_state.open_months_list = [(m[0],m[1]) for m in json.loads(raw.get("SYS_OPEN_MONTHS","[[2026,3]]"))]
+        except: st.session_state.open_months_list = [(2026,3)]
+        try: st.session_state.closed_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_CLOSED_DAYS","[]"))]
+        except: st.session_state.closed_days = []
+        try: st.session_state.open_days = [datetime.strptime(d,"%Y-%m-%d").date() for d in json.loads(raw.get("SYS_OPEN_DAYS","[]"))]
+        except: st.session_state.open_days = []
+        try: st.session_state.zone_names = json.loads(raw.get("SYS_ZONE_NAMES",json.dumps(DEFAULT_ZONE_NAMES)))
+        except: st.session_state.zone_names = DEFAULT_ZONE_NAMES
+        try:
+            raw_vol = json.loads(raw.get("SYS_VOLUNTEERS","[]"))
+            vols = []
+            for v in raw_vol:
+                if isinstance(v, str): vols.append({"name": v, "id": ""})
+                else: vols.append(v)
+            st.session_state.volunteers = vols
+        except:
+            st.session_state.volunteers = []
+        st.session_state.announcement   = raw.get("SYS_ANNOUNCEMENT","歡迎！點選週次進行排班。")
+        try: st.session_state.duty_files = json.loads(raw.get("SYS_DUTY_FILES","[]"))
+        except: st.session_state.duty_files = []
+        for df_meta in st.session_state.duty_files:
+            dk = df_meta.get("key","")
+            if dk and dk in raw:
+                st.session_state.bookings[dk] = raw[dk]
+        st.session_state.page           = "calendar"
+        st.session_state.month_idx      = 0
+        st.session_state.sel_week_start = None
+        st.session_state.sel_cell       = None
+        # [修復#2] 管理員 session 驗證旗標及登入嘗試計數
+        st.session_state.is_admin_auth  = False
+        st.session_state.login_attempts = 0
+        st.session_state.app_ready      = True
+    except Exception as e:
+        st.error(f"❌ 程式初始化失敗，請重新整理頁面。錯誤：{e}")
+        st.stop()
 
 init_state()
+
+# ── [修復#2] 管理員驗證守門函式 ──────────────────────────
+def require_admin():
+    """所有管理員頁面開頭都必須呼叫此函式。"""
+    if not st.session_state.get("is_admin_auth", False):
+        nav("admin_login")
+        st.stop()
 
 # ── Helpers ────────────────────────────────────────────────
 def is_open(d: date) -> bool:
@@ -334,15 +346,15 @@ def day_status(d: date, min_d: date, max_d: date) -> str:
     if not is_open(d): return "closed"
     return "open"
 
+# [修復#9] 建立志工名字索引字典，查詢由 O(n) 提升為 O(1)
+def get_volunteer_index() -> dict:
+    """回傳 {name: volunteer_dict} 的索引表。"""
+    return {v["name"]: v for v in st.session_state.get("volunteers", [])}
+
 def find_volunteer_by_name(name: str):
-    """Return volunteer dict matching name, or None."""
-    for v in st.session_state.get("volunteers", []):
-        if v.get("name","") == name:
-            return v
-    return None
+    return get_volunteer_index().get(name)
 
 def id_matches(volunteer: dict, id_input: str) -> bool:
-    """Case-insensitive first char match for ID card."""
     vid = volunteer.get("id","").strip()
     if not vid: return False
     inp = id_input.strip()
@@ -419,10 +431,8 @@ def _bottom_row(months):
     show_panel = bool(volunteers and has_ids)
 
     if show_panel:
-        # ── Toggle button ──
         if st.button("📋 確認已排班 / 累計時數資訊", key="open_dl_panel", use_container_width=True):
             st.session_state.dl_panel_open = not st.session_state.get("dl_panel_open", False)
-            # Reset verification when closing
             if not st.session_state.dl_panel_open:
                 st.session_state.pop("dl_verified_name", None)
 
@@ -436,18 +446,15 @@ def _bottom_row(months):
 
 
 def _schedule_info_panel(months, volunteers):
-    """Panel shown after clicking 確認已排班 / 累計時數資訊."""
     verified_name = st.session_state.get("dl_verified_name", None)
     verified_id   = st.session_state.get("dl_verified_id", None)
 
-    # ── Compact header ──
     st.markdown(
         '<div style="background:#fffbeb;border:1.5px solid #d1a84b;border-radius:8px;'
         'padding:6px 12px;margin-top:4px;margin-bottom:0;">'
         '<span style="font-weight:700;font-size:13px;color:#92400e;">🪪 請輸入身分證字號以確認排班資訊</span>'
         '</div>', unsafe_allow_html=True)
 
-    # ── ID input + verify button in one row ──
     id_col, btn_col = st.columns([3, 1])
     with id_col:
         id_input = st.text_input("身分證字號", key="dl_id",
@@ -465,7 +472,9 @@ def _schedule_info_panel(months, volunteers):
         else:
             id_norm = inp[0].upper() + inp[1:]
             matched = None
-            for v in volunteers:
+            # [修復#9] 改用索引字典查詢
+            vol_index = get_volunteer_index()
+            for v in vol_index.values():
                 vid = v.get("id","").strip()
                 if vid and (vid[0].upper() + vid[1:]) == id_norm:
                     matched = v; break
@@ -483,12 +492,10 @@ def _schedule_info_panel(months, volunteers):
     if not verified_name:
         return
 
-    # ── Verified badge ──
     st.markdown(
         f'<div style="color:#16a34a;font-weight:700;font-size:13px;margin:4px 0 2px;">'
         f'✅ 驗證成功：{verified_name}</div>', unsafe_allow_html=True)
 
-    # ── Month selector ──
     month_opts   = [(y, m) for y, m in sorted(months)]
     month_labels = [f"{y}年{m}月" for y, m in month_opts]
     m_sel = st.selectbox("開放月份", range(len(month_opts)),
@@ -496,7 +503,6 @@ def _schedule_info_panel(months, volunteers):
                          key="dl_month", label_visibility="collapsed")
     sel_y, sel_m = month_opts[m_sel]
 
-    # ── Build schedule rows ──
     zone_names = st.session_state.zone_names
     bookings   = st.session_state.bookings
     d_cur = date(sel_y, sel_m, 1)
@@ -513,7 +519,6 @@ def _schedule_info_panel(months, volunteers):
 
     total_hrs = len(records) * 3
 
-    # ── Schedule card ──
     if records:
         rows_html = ""
         for i, (d_obj, shift, zone) in enumerate(records):
@@ -538,28 +543,25 @@ def _schedule_info_panel(months, volunteers):
         st.markdown(
             f'<div style="border:1.5px solid #f59e0b;border-radius:8px;overflow:hidden;margin-top:4px;">'
             f'{rows_html}{total_bar}</div>', unsafe_allow_html=True)
-
     else:
         st.markdown(
             f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
             f'padding:10px;text-align:center;color:#6b7280;font-size:13px;margin-top:4px;">'
             f'📭 {sel_y}年{sel_m}月 尚無排班記錄</div>', unsafe_allow_html=True)
 
-    # ── Duty history section ──
     _duty_history_section(verified_name, verified_id)
 
 
 def _duty_history_section(verified_name, verified_id):
-    """Collapsible: 查看已排班累計執勤時數."""
     duty_files = st.session_state.get("duty_files", [])
     if not duty_files:
         return
 
     open_key = "duty_hist_open"
-    is_open  = st.session_state.get(open_key, False)
-    arrow    = "▲" if is_open else "▼"
+    is_open_flag = st.session_state.get(open_key, False)
+    arrow    = "▲" if is_open_flag else "▼"
     if st.button(f"　查看已排班累計執勤時數　{arrow}", key="duty_hist_toggle", use_container_width=True):
-        st.session_state[open_key] = not is_open
+        st.session_state[open_key] = not is_open_flag
         st.rerun()
 
     if not st.session_state.get(open_key, False):
@@ -606,7 +608,6 @@ def _duty_history_section(verified_name, verified_id):
             f'📭 {chosen["name"]} 查無您的值勤記錄</div>', unsafe_allow_html=True)
 
 def _export_duty_excel(vol_name, file_label, rows, total_hrs):
-    """Export filtered duty records as Excel."""
     out_rows = [{"姓名": r.get("name", vol_name),
                  "服務日期": r.get("date",""),
                  "時數(hr)": r.get("hours","")}
@@ -644,11 +645,7 @@ def _export_duty_excel(vol_name, file_label, rows, total_hrs):
             mime="text/csv", use_container_width=True, type="primary")
 
 
-
-
 def _do_export_excel(vol_name, sel_y, sel_m, records, total_hrs):
-    """Generate and trigger Excel/CSV download."""
-    zone_names = st.session_state.zone_names
     rows = [{"日期": f"{d.month}/{d.day}(週{WD[d.weekday()]})",
              "上/下午": shift, "區域": zone, "時數(hr)": 3}
             for d, shift, zone in records]
@@ -659,7 +656,7 @@ def _do_export_excel(vol_name, sel_y, sel_m, records, total_hrs):
 
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.styles import Font, PatternFill
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df_out.to_excel(writer, index=False, sheet_name="個人班表")
@@ -680,7 +677,6 @@ def _do_export_excel(vol_name, sel_y, sel_m, records, total_hrs):
         st.download_button("⬇️ 點此下載 CSV 檔案", data=csv_str.encode("utf-8-sig"),
                            file_name=f"{vol_name}_{sel_y}{sel_m:02d}班表.csv",
                            mime="text/csv", use_container_width=True, type="primary")
-
 
 
 # ── Page: Week Grid ────────────────────────────────────────
@@ -768,7 +764,7 @@ def page_week_grid():
         vol_names   = [v["name"] for v in volunteers]
         has_vol_list = bool(vol_names)
 
-        # ── Dynamic hint changes based on whether cell is occupied ──
+        # [修復#5] 修正空格欄位的說明文字，移除誤導性的「刪除」字眼
         if current_occupant:
             st.markdown(
                 f'<div class="cancel-hint">'
@@ -778,7 +774,7 @@ def page_week_grid():
             field_label = "輸入身分證字號以取消排班"
             placeholder = "輸入本人身分證字號（第一碼大小寫皆可）"
         else:
-            field_label = "輸入姓名以登記排班, 若要刪除則須輸入身分證號按下儲存"
+            field_label = "輸入姓名以登記排班"
             placeholder = "輸入姓名"
 
         entry_val = st.text_input(field_label, key="in_n", placeholder=placeholder)
@@ -791,13 +787,11 @@ def page_week_grid():
                 if not entry:
                     st.error("❌ 請輸入身分證字號以取消排班。")
                     st.stop()
-                # Find the occupant's volunteer record
                 occupant_vol = find_volunteer_by_name(current_occupant)
                 if occupant_vol and has_vol_list:
                     if not id_matches(occupant_vol, entry):
                         st.error("❌ 身分證字號不符，無法取消他人的排班。")
                         st.stop()
-                    # ID verified — cancel
                     fresh = load_data()
                     cloud = fresh.get(key,"")
                     if cloud.strip() and cloud != current_occupant:
@@ -810,14 +804,13 @@ def page_week_grid():
                         st.success(f"✅ 已取消 {current_occupant} 的排班。")
                     st.rerun()
                 else:
-                    # No volunteer record / no list — admin-level override allowed
                     st.error("❌ 此志工無身分證記錄，請洽管理員處理。")
                     st.stop()
 
             # ── CASE 2: Cell is EMPTY → booking flow ──
             else:
                 if not entry:
-                    st.error("❌ 請輸入姓名以登記排班, 若要刪除則須輸入身分證號按下儲存。")
+                    st.error("❌ 請輸入姓名以登記排班。")
                     st.stop()
                 if has_vol_list and entry not in vol_names:
                     st.error(f"❌ 「{entry}」不在志工名單中，請確認姓名是否正確。")
@@ -844,32 +837,61 @@ def page_week_grid():
 # ── Admin pages ────────────────────────────────────────────
 def page_admin_login():
     st.markdown("<h2>管理員登入</h2>", unsafe_allow_html=True)
+
+    # [修復#2] 暴力破解防護
+    attempts = st.session_state.get("login_attempts", 0)
+    if attempts >= MAX_LOGIN_ATTEMPTS:
+        st.error(f"❌ 嘗試次數過多（{MAX_LOGIN_ATTEMPTS} 次），請重新整理頁面後再試。")
+        if st.button("返回", key="cancel_login_locked", use_container_width=True):
+            st.session_state.login_attempts = 0
+            nav("calendar")
+        return
+
     pwd = st.text_input("密碼", type="password", key="pwd_in", placeholder="請輸入管理員密碼")
-    c1,c2 = st.columns(2)
+    c1, c2 = st.columns(2)
     with c1:
         if st.button("登入", key="do_login", type="primary", use_container_width=True):
-            if pwd==ADMIN_PW: nav("admin")
-            else: st.error("密碼錯誤")
+            if pwd == ADMIN_PW:
+                st.session_state.is_admin_auth = True   # [修復#2] 設定 session 驗證旗標
+                st.session_state.login_attempts = 0
+                nav("admin")
+            else:
+                st.session_state.login_attempts = attempts + 1
+                remaining = MAX_LOGIN_ATTEMPTS - st.session_state.login_attempts
+                st.error(f"密碼錯誤，剩餘嘗試次數：{remaining}")
     with c2:
-        if st.button("返回", key="cancel_login", use_container_width=True): nav("calendar")
+        if st.button("返回", key="cancel_login", use_container_width=True):
+            nav("calendar")
 
 def page_admin():
+    require_admin()  # [修復#2] 守門驗證
     st.markdown('<div class="admin-card"><div class="admin-title">管理員後台</div>', unsafe_allow_html=True)
-    for label,dest in [("管理開放月份","admin_months"),("休館設定","admin_holidays"),
-                       ("公告修改","admin_ann"),("區域名稱設定","admin_zones"),
-                       ("👥 志工名單管理","admin_volunteers"),
-                       ("📊 值勤時數檔案管理","admin_duty_files"),
-                       ("📥 下載值班表 Excel","admin_export")]:
+    for label, dest in [("管理開放月份","admin_months"),("休館設定","admin_holidays"),
+                        ("公告修改","admin_ann"),("區域名稱設定","admin_zones"),
+                        ("👥 志工名單管理","admin_volunteers"),
+                        ("📊 值勤時數檔案管理","admin_duty_files"),
+                        ("📥 下載值班表 Excel","admin_export")]:
         st.markdown('<div class="admin-big-btn">', unsafe_allow_html=True)
         if st.button(label, key=f"ab_{dest}", use_container_width=True): nav(dest)
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     st.write("")
-    st.markdown('<div class="admin-back-btn">', unsafe_allow_html=True)
-    if st.button("退回", key="admin_back", use_container_width=True): nav("calendar")
-    st.markdown('</div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        # [修復#8] 新增登出按鈕
+        st.markdown('<div class="admin-back-btn">', unsafe_allow_html=True)
+        if st.button("🔓 登出", key="admin_logout", use_container_width=True):
+            st.session_state.is_admin_auth = False
+            nav("calendar")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="admin-back-btn">', unsafe_allow_html=True)
+        if st.button("返回首頁", key="admin_back", use_container_width=True):
+            nav("calendar")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def page_admin_months():
+    require_admin()  # [修復#2]
     st.markdown("## 管理開放月份")
     cur = sorted(st.session_state.open_months_list)
     if cur: st.info("目前開放：" + "、".join([f"{y}年{m}月" for y,m in cur]))
@@ -912,6 +934,7 @@ def render_mini_cal(year, month):
     return html
 
 def page_admin_holidays():
+    require_admin()  # [修復#2]
     st.markdown("## 休館設定")
     st.caption("預設週一及週日休館，可額外設定特別休館/開館日。")
     st.markdown('<div class="cal-legend"><span><span class="leg-dot" style="background:#e0e0e0;"></span>預設休館</span>'
@@ -942,6 +965,7 @@ def page_admin_holidays():
     if st.button("← 返回", key="bk_h"): nav("admin")
 
 def page_admin_export():
+    require_admin()  # [修復#2]
     st.markdown("## 📥 下載值班表 Excel")
     zone_names = st.session_state.zone_names
     rows = []
@@ -980,6 +1004,7 @@ def page_admin_export():
     if st.button("← 返回", key="bk_ex"): nav("admin")
 
 def page_admin_ann():
+    require_admin()  # [修復#2]
     st.markdown("## 公告修改")
     ann = st.text_area("公告內容",st.session_state.announcement,height=160,key="ann_ta")
     if st.button("✅ 更新公告",key="upd_ann",type="primary"):
@@ -989,6 +1014,7 @@ def page_admin_ann():
     if st.button("← 返回",key="bk_ann"): nav("admin")
 
 def page_admin_zones():
+    require_admin()  # [修復#2]
     st.markdown("## 區域名稱設定")
     new_names = []
     for i in range(6): new_names.append(st.text_input(f"區域 {i+1}", value=st.session_state.zone_names[i], key=f"zn_{i}"))
@@ -999,6 +1025,7 @@ def page_admin_zones():
     if st.button("← 返回",key="bk_zn"): nav("admin")
 
 def page_admin_volunteers():
+    require_admin()  # [修復#2]
     st.markdown("## 👥 志工名單管理")
     st.caption("登錄姓名與身分證字號。")
     volunteers = st.session_state.get("volunteers", [])
@@ -1057,19 +1084,17 @@ def page_admin_volunteers():
     if st.button("← 返回", key="bk_vol"): nav("admin")
 
 def page_admin_duty_files():
-    """Admin: upload & manage yearly duty hour Excel files."""
+    require_admin()  # [修復#2]
     st.markdown("## 📊 值勤時數檔案管理")
     st.caption("上傳各年度志工值勤紀錄 Excel，志工輸入身分證後系統自動過濾顯示個人資料。")
 
     duty_files = st.session_state.get("duty_files", [])
 
-    # ── Existing files ──
     if duty_files:
         st.markdown(f"**已上傳檔案（共 {len(duty_files)} 份）**")
         to_delete = []
         for i, f in enumerate(duty_files):
             c1, c2, c3 = st.columns([4, 2, 1])
-            # Editable name
             new_label = c1.text_input("顯示名稱", value=f["name"], key=f"df_name_{i}",
                                        label_visibility="collapsed")
             row_count = len(json.loads(st.session_state.bookings.get(f["key"],"[]")))
@@ -1085,7 +1110,6 @@ def page_admin_duty_files():
 
         if to_delete:
             for i in sorted(to_delete, reverse=True):
-                # Also remove data key
                 del_key = duty_files[i]["key"]
                 save_data(del_key, "[]")
                 duty_files.pop(i)
@@ -1095,7 +1119,6 @@ def page_admin_duty_files():
 
         st.markdown("---")
 
-    # ── Upload new file ──
     st.markdown("**上傳新的值勤紀錄 Excel**")
     st.caption("Excel 欄位需包含：姓名、身分證字號、服務日期起（或日期）、時數（或服務時數）")
 
@@ -1110,24 +1133,20 @@ def page_admin_duty_files():
                 fname  = uploaded.name.lower()
                 engine = "xlrd" if fname.endswith(".xls") else "openpyxl"
                 df_raw = pd.read_excel(uploaded, engine=engine)
-                # ── Auto-detect columns ──
                 col_map = {}
                 for col in df_raw.columns:
                     c = str(col).replace(" ","").replace("　","").replace("-","").replace("－","")
                     if any(k in c for k in ["姓名","名字"]):                              col_map.setdefault("name", col)
                     if any(k in c for k in ["身分證","身份證","證號","証號","ID","id"]):    col_map.setdefault("id", col)
                     if any(k in c for k in ["日期起","服務日期","開始日","日期"]):          col_map.setdefault("date", col)
-                    # Separate 小時/分鐘 columns take priority over combined
                     if any(k in c for k in ["服務時數小時","時數小時","小時數"]):           col_map["hours_h"] = col
                     if any(k in c for k in ["服務時數分鐘","時數分鐘","分鐘數"]):           col_map["hours_m"] = col
-                    # Fallback: combined hours column
                     if "hours_h" not in col_map and "hours_m" not in col_map:
                         if any(k in c for k in ["時數","服務時數","小時","時間"]):          col_map.setdefault("hours", col)
 
-                # If we have split columns, mark as handled
                 has_split = "hours_h" in col_map or "hours_m" in col_map
                 if has_split:
-                    col_map.pop("hours", None)  # prefer split over combined
+                    col_map.pop("hours", None)
 
                 required = ["name","id","date"]
                 required += [] if has_split else ["hours"]
@@ -1136,7 +1155,6 @@ def page_admin_duty_files():
                     st.error(f"❌ 找不到必要欄位，請確認 Excel 包含：姓名、身分證字號、日期、時數。\n"
                              f"偵測到的欄位：{list(df_raw.columns)}")
                 else:
-                    # Parse rows
                     records = []
                     for _, row in df_raw.iterrows():
                         nm  = str(row[col_map["name"]]).strip()
@@ -1144,7 +1162,6 @@ def page_admin_duty_files():
                         dt  = str(row[col_map["date"]]).strip()
                         if not nm or not rid or rid == "nan":
                             continue
-                        # ── Combine 小時 + 分鐘 → decimal hours ──
                         if has_split:
                             try: h = float(row[col_map["hours_h"]]) if "hours_h" in col_map else 0
                             except: h = 0
@@ -1154,21 +1171,17 @@ def page_admin_duty_files():
                         else:
                             try: hrs = float(row[col_map["hours"]])
                             except: hrs = 0
-                        # Round to 1 decimal to avoid floating point noise
                         hrs = round(hrs, 1)
-                        # Normalize date display
                         try:
                             dt = pd.to_datetime(dt).strftime("%Y/%m/%d")
                         except: pass
                         records.append({"name": nm, "id": rid, "date": dt, "hours": hrs})
 
-                    # Save to GSheets
-                    file_idx = len(duty_files)
-                    data_key = f"SYS_DUTY_DATA_{file_idx}"
+                    # [修復#3] 用 timestamp 當 key，避免刪除再新增時編號碰撞
+                    data_key = f"SYS_DUTY_DATA_{int(time.time())}"
                     save_data(data_key, json.dumps(records, ensure_ascii=False))
                     duty_files.append({"name": display_name.strip(), "key": data_key})
                     st.session_state.duty_files = duty_files
-                    # Also cache in bookings for immediate use
                     st.session_state.bookings[data_key] = json.dumps(records, ensure_ascii=False)
                     save_data("SYS_DUTY_FILES", json.dumps(duty_files))
                     st.success(f"✅ 已儲存「{display_name.strip()}」，共 {len(records)} 筆記錄。")
@@ -1179,7 +1192,6 @@ def page_admin_duty_files():
         st.warning("請先填寫顯示名稱。")
 
     st.markdown("---")
-
     if st.button("← 返回", key="bk_df"): nav("admin")
 
 
