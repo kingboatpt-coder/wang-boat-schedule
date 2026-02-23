@@ -140,6 +140,12 @@ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button{
     margin:0!important;color:#000000!important;
     background:#ffffff!important;background-color:#ffffff!important;
 }
+/* 選中週次的日期格子：紅底白字 */
+div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button[data-testid="baseButton-primary"],
+div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button[kind="primary"]{
+    background:#ef4444!important;background-color:#ef4444!important;
+    color:#ffffff!important;border-color:#ef4444!important;
+}
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) ~ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)){
     margin-top:-4px!important;
 }
