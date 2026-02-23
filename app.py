@@ -85,7 +85,41 @@ a,caption,strong,em,b,i,small{color:#000000!important;}
 [data-testid="stDateInput"] input{color:#000000!important;background:#ffffff!important;}
 [data-testid="stTextArea"] textarea{color:#000000!important;background:#ffffff!important;}
 [data-testid="stDataFrame"] *{color:#000000!important;}
-button{color:#000000!important;}
+
+/* ══ 強制所有按鈕白底黑字（修復 Safari iOS 深色模式黑色按鈕問題） ══ */
+button{
+    color:#000000!important;
+    background-color:#ffffff!important;
+    background:#ffffff!important;
+}
+/* Streamlit secondary button */
+button[data-testid="baseButton-secondary"],
+[data-testid="stBaseButton-secondary"],
+[data-testid="stButton"] button,
+[class*="stButton"] button{
+    background-color:#ffffff!important;
+    background:#ffffff!important;
+    color:#000000!important;
+    border:1.5px solid #333333!important;
+}
+/* Streamlit primary button（紅色保留） */
+button[data-testid="baseButton-primary"],
+[data-testid="stBaseButton-primary"],
+button[kind="primary"]{
+    background-color:#ef4444!important;
+    background:#ef4444!important;
+    color:#ffffff!important;
+    border:none!important;
+}
+/* disabled button */
+button:disabled,
+button[disabled]{
+    background-color:#eeeeee!important;
+    background:#eeeeee!important;
+    color:#aaaaaa!important;
+    border-color:#dddddd!important;
+    opacity:0.7!important;
+}
 
 .header-row{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;padding-left:4px;}
 .header-title{font-size:24px;font-weight:700;color:#000000;margin:0;}
@@ -103,7 +137,8 @@ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button{
     display:flex;align-items:center;justify-content:center;
     line-height:1!important;border-radius:4px!important;
     border:1px solid #333333!important;font-weight:600!important;font-size:14px!important;
-    margin:0!important;color:#000000!important;background:#ffffff!important;
+    margin:0!important;color:#000000!important;
+    background:#ffffff!important;background-color:#ffffff!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) ~ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)){
     margin-top:-4px!important;
@@ -123,7 +158,7 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stHorizonta
 .mnav-row button:disabled{color:#cccccc!important;}
 
 .enter-btn button{
-    background:#ffffff!important;color:#000000!important;
+    background:#ffffff!important;background-color:#ffffff!important;color:#000000!important;
     border:1.5px solid #000000!important;height:40px!important;
     font-size:15px!important;font-weight:700!important;margin-top:4px!important;
 }
@@ -180,8 +215,6 @@ div[data-testid="stSelectbox"],div[data-testid="stTextInput"]{
     margin-bottom:3px!important;margin-top:0!important;
 }
 
-button[kind="primary"]{background:#ef4444!important;color:#ffffff!important;border:none!important;}
-button:disabled{background:#e5e5e5!important;color:#888888!important;opacity:0.6!important;}
 .day-header{text-align:center;font-size:12px;font-weight:700;color:#333333;margin-bottom:2px;}
 .day-header.sun{color:#cc0000;}
 
