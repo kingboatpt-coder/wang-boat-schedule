@@ -18,9 +18,8 @@ st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide"
 INTERNAL_ZONES      = ["Z1","Z2","Z3","Z4","Z5","Z6"]
 DEFAULT_ZONE_NAMES = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
 
-# ── [修復#1] 密碼改為 781223，從 secrets 讀取，若無設定才用預設值
 ADMIN_PW = st.secrets.get("admin_pw", "781223")
-MAX_LOGIN_ATTEMPTS = 5  # [修復#2] 最多嘗試次數
+MAX_LOGIN_ATTEMPTS = 5
 
 WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
 MON_EN = ["","January","February","March","April","May","June",
@@ -33,16 +32,64 @@ st.markdown("""
 [data-testid="stElementToolbar"],
 section[data-testid="stSidebar"]{display:none!important;}
 
-.stApp{background:#e8e3d8!important;}
+/* ══ 全站白底黑字（修復 Safari 文字顯示問題） ══ */
+.stApp{background:#ffffff!important;color:#000000!important;}
 .block-container{
     padding:10px 6px 20px 6px!important;
     max-width:500px!important;margin:0 auto!important;
+    background:#ffffff!important;
 }
-html,body,[class*="css"]{font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;}
+html,body{
+    background:#ffffff!important;
+    color:#000000!important;
+    font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;
+}
+[class*="css"]{font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;}
+
+/* 強制所有常見元素文字為黑色 */
+p,span,div,label,li,td,th,h1,h2,h3,h4,h5,h6,
+a,caption,strong,em,b,i,small{color:#000000!important;}
+
+/* Streamlit markdown 容器 */
+[data-testid="stMarkdownContainer"],
+[data-testid="stMarkdownContainer"] *{color:#000000!important;}
+
+/* 輸入框 */
+.stTextInput input,
+[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea{
+    color:#000000!important;
+    background:#ffffff!important;
+    border:1px solid #999!important;
+}
+.stTextInput input::placeholder,
+[data-baseweb="input"] input::placeholder{color:#999999!important;}
+
+/* 下拉選單 */
+[data-testid="stSelectbox"] *,
+[data-baseweb="select"] *{color:#000000!important;background:#ffffff!important;}
+
+/* 下拉選單彈出視窗 */
+[data-baseweb="popover"],[data-baseweb="popover"] *,
+[data-baseweb="menu"],[data-baseweb="menu"] *,
+[data-baseweb="list"],[data-baseweb="list"] *{
+    color:#000000!important;background:#ffffff!important;
+}
+[data-baseweb="menu"] li:hover,[data-baseweb="list"] li:hover{background:#f0f0f0!important;}
+
+/* 其他元件 */
+[data-testid="stAlert"] *{color:#000000!important;}
+[data-testid="stCaptionContainer"] *{color:#444444!important;}
+[data-testid="stInfo"] *{color:#000000!important;}
+[data-testid="stNumberInput"] input{color:#000000!important;background:#ffffff!important;}
+[data-testid="stDateInput"] input{color:#000000!important;background:#ffffff!important;}
+[data-testid="stTextArea"] textarea{color:#000000!important;background:#ffffff!important;}
+[data-testid="stDataFrame"] *{color:#000000!important;}
+button{color:#000000!important;}
 
 .header-row{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;padding-left:4px;}
-.header-title{font-size:24px;font-weight:700;color:#333;margin:0;}
-.header-date{font-size:16px;font-weight:500;color:#666;}
+.header-title{font-size:24px;font-weight:700;color:#000000;margin:0;}
+.header-date{font-size:16px;font-weight:500;color:#444444;}
 
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)){
     display:grid!important;grid-template-columns:repeat(7,1fr)!important;
@@ -55,8 +102,8 @@ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button{
     aspect-ratio:1/1!important;height:auto!important;
     display:flex;align-items:center;justify-content:center;
     line-height:1!important;border-radius:4px!important;
-    border:1px solid #ccc!important;font-weight:600!important;font-size:14px!important;
-    margin:0!important;
+    border:1px solid #333333!important;font-weight:600!important;font-size:14px!important;
+    margin:0!important;color:#000000!important;background:#ffffff!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) ~ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)){
     margin-top:-4px!important;
@@ -70,40 +117,40 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stHorizonta
 .mnav-row div[data-testid="stHorizontalBlock"]{align-items:center!important;gap:0!important;}
 .mnav-row button{
     background:transparent!important;border:none!important;box-shadow:none!important;
-    font-size:22px!important;font-weight:700!important;color:#444!important;
+    font-size:22px!important;font-weight:700!important;color:#000000!important;
     height:36px!important;min-width:36px!important;padding:0!important;
 }
-.mnav-row button:disabled{color:#ccc!important;}
+.mnav-row button:disabled{color:#cccccc!important;}
 
 .enter-btn button{
-    background:white!important;color:#333!important;
-    border:1.5px solid #333!important;height:40px!important;
+    background:#ffffff!important;color:#000000!important;
+    border:1.5px solid #000000!important;height:40px!important;
     font-size:15px!important;font-weight:700!important;margin-top:4px!important;
 }
 
-.ann-box{background:white;border:2px solid #333;border-radius:6px;margin-top:6px!important;margin-bottom:8px!important;}
-.ann-title{border-bottom:1.5px solid #333;padding:6px;font-weight:700;text-align:center;font-size:15px;}
-.ann-body{padding:8px 12px;font-size:13px;line-height:1.5;color:#333;white-space:pre-wrap;}
+.ann-box{background:#ffffff;border:2px solid #000000;border-radius:6px;margin-top:6px!important;margin-bottom:8px!important;}
+.ann-title{border-bottom:1.5px solid #000000;padding:6px;font-weight:700;text-align:center;font-size:15px;color:#000000!important;}
+.ann-body{padding:8px 12px;font-size:13px;line-height:1.5;color:#000000!important;white-space:pre-wrap;}
 
-.admin-tiny button{background:transparent!important;color:#bbb!important;border:none!important;
+.admin-tiny button{background:transparent!important;color:#666666!important;border:none!important;
     font-size:11px!important;padding:0!important;height:auto!important;box-shadow:none!important;}
 
 .wk-wrap{overflow-x:auto;margin:0 0 2px 0;}
 .wk-tbl{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed;}
-.wk-tbl th{border:1px solid #333;padding:2px;text-align:center;background:#eee;
+.wk-tbl th{border:1px solid #000000;padding:2px;text-align:center;background:#eeeeee;
     font-weight:600;white-space:normal!important;word-wrap:break-word!important;
-    vertical-align:middle;height:35px;font-size:11px;}
-.wk-tbl td{border:1px solid #333;padding:2px;text-align:center;vertical-align:middle;height:35px;}
-.wk-date-cell{background:#f5f5f5;font-weight:700;font-size:11px;width:35px;}
+    vertical-align:middle;height:35px;font-size:11px;color:#000000!important;}
+.wk-tbl td{border:1px solid #000000;padding:2px;text-align:center;vertical-align:middle;height:35px;color:#000000!important;}
+.wk-date-cell{background:#f5f5f5;font-weight:700;font-size:11px;width:35px;color:#000000!important;}
 .wk-shift-cell{background:#e8e8e8;font-size:10px;width:20px;font-weight:600;
-    writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1px;padding:0 2px;}
-.wk-filled-cell{background:#FFD700;}
-.wk-empty-cell{background:#FFF;}
-.wk-closed-cell{background:#e0e0e0;color:#999;font-size:10px;letter-spacing:1px;
+    writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1px;padding:0 2px;color:#000000!important;}
+.wk-filled-cell{background:#FFD700;color:#000000!important;}
+.wk-empty-cell{background:#ffffff;color:#000000!important;}
+.wk-closed-cell{background:#e0e0e0;color:#444444!important;font-size:10px;letter-spacing:1px;
     background-image:repeating-linear-gradient(45deg,transparent,transparent 5px,#ccc 5px,#ccc 6px);}
 .wk-outrange-cell{background:#d0d0d0;
     background-image:repeating-linear-gradient(45deg,transparent,transparent 4px,#aaa 4px,#aaa 5px);}
-.vol-name{font-size:13px;font-weight:600;color:#000;display:block;
+.vol-name{font-size:13px;font-weight:600;color:#000000!important;display:block;
     line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sel-border{outline:2px solid #cc0000;outline-offset:-2px;}
 
@@ -111,58 +158,60 @@ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child){
     gap:4px!important;margin-top:2px!important;margin-bottom:2px!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child) button{
-    background:white!important;color:#333!important;
-    border:1.5px solid #bbb!important;border-radius:8px!important;
+    background:#ffffff!important;color:#000000!important;
+    border:1.5px solid #555555!important;border-radius:8px!important;
     height:38px!important;font-size:11px!important;font-weight:600!important;width:100%!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child) button:disabled{
-    background:#eee!important;color:#bbb!important;border-color:#ddd!important;
+    background:#eeeeee!important;color:#aaaaaa!important;border-color:#dddddd!important;
 }
 
 div[data-testid="stSelectbox"] label,div[data-testid="stTextInput"] label{
     font-size:13px!important;margin-bottom:0!important;
     padding-bottom:0!important;line-height:1.3!important;min-height:0!important;
+    color:#000000!important;
 }
 div[data-testid="stSelectbox"] div[data-baseweb="select"],
 div[data-testid="stTextInput"] div[data-baseweb="input"]{
     min-height:32px!important;height:32px!important;font-size:14px!important;
+    background:#ffffff!important;
 }
 div[data-testid="stSelectbox"],div[data-testid="stTextInput"]{
     margin-bottom:3px!important;margin-top:0!important;
 }
 
-button[kind="primary"]{background:#ef4444!important;color:white!important;border:none!important;}
-button:disabled{background:#e5e5e5!important;color:#bbb!important;opacity:0.6!important;}
-.day-header{text-align:center;font-size:12px;font-weight:700;color:#666;margin-bottom:2px;}
+button[kind="primary"]{background:#ef4444!important;color:#ffffff!important;border:none!important;}
+button:disabled{background:#e5e5e5!important;color:#888888!important;opacity:0.6!important;}
+.day-header{text-align:center;font-size:12px;font-weight:700;color:#333333;margin-bottom:2px;}
 .day-header.sun{color:#cc0000;}
 
-.admin-card{background:white;border-radius:14px;padding:28px 20px 20px;
+.admin-card{background:#ffffff;border-radius:14px;padding:28px 20px 20px;
     box-shadow:0 2px 14px rgba(0,0,0,.10);}
 .admin-title{color:#e53e3e;text-align:center;font-size:26px;font-weight:700;margin-bottom:24px;}
-.admin-big-btn button{background:#4ECDC4!important;color:#111!important;border:none!important;
+.admin-big-btn button{background:#4ECDC4!important;color:#000000!important;border:none!important;
     border-radius:10px!important;height:64px!important;font-size:18px!important;font-weight:600!important;}
-.admin-back-btn button{background:#c8c8c8!important;color:#444!important;border:none!important;
+.admin-back-btn button{background:#c8c8c8!important;color:#333333!important;border:none!important;
     border-radius:10px!important;height:48px!important;font-size:15px!important;}
 
-.mini-cal-wrap{background:white;border-radius:10px;padding:10px 8px 8px;
-    border:1px solid #ddd;margin-bottom:10px;}
-.mini-cal-month{text-align:center;font-weight:700;font-size:14px;margin-bottom:6px;color:#333;}
+.mini-cal-wrap{background:#ffffff;border-radius:10px;padding:10px 8px 8px;
+    border:1px solid #333333;margin-bottom:10px;}
+.mini-cal-month{text-align:center;font-weight:700;font-size:14px;margin-bottom:6px;color:#000000!important;}
 .mini-cal-tbl{width:100%;border-collapse:collapse;table-layout:fixed;}
-.mini-cal-tbl th{font-size:10px;font-weight:600;color:#888;text-align:center;padding:2px 0 4px;}
-.mini-cal-tbl th.mc-sun{color:#cc0000;}
+.mini-cal-tbl th{font-size:10px;font-weight:600;color:#555555!important;text-align:center;padding:2px 0 4px;}
+.mini-cal-tbl th.mc-sun{color:#cc0000!important;}
 .mini-cal-tbl td{text-align:center;padding:2px 0;}
 .mc-day{width:30px;height:30px;border-radius:50%;display:inline-flex;
     align-items:center;justify-content:center;font-size:12px;font-weight:500;margin:auto;}
-.mc-normal{color:#222;background:transparent;}
-.mc-closed-def{background:#e0e0e0;color:#888;}
-.mc-closed-sp{background:#ef4444;color:white;}
-.mc-open-sp{background:#4ECDC4;color:white;}
-.mc-pad{color:#ddd;font-size:12px;}
-.cal-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:8px;align-items:center;}
+.mc-normal{color:#000000!important;background:transparent;}
+.mc-closed-def{background:#e0e0e0;color:#555555!important;}
+.mc-closed-sp{background:#ef4444;color:#ffffff!important;}
+.mc-open-sp{background:#4ECDC4;color:#000000!important;}
+.mc-pad{color:#cccccc!important;font-size:12px;}
+.cal-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:8px;align-items:center;color:#000000!important;}
 .leg-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle;}
 
 .cancel-hint{background:#fff8e1;border:1.5px solid #f59e0b;border-radius:8px;
-    padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:6px;line-height:1.5;}
+    padding:8px 12px;font-size:12px;color:#7a3800!important;margin-bottom:6px;line-height:1.5;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -178,7 +227,6 @@ def init_connection():
 
 CHUNK_SIZE = 40000
 
-# [修復#7] 加入 10 秒快取，減少重複讀取 Google Sheets 的次數
 @st.cache_data(ttl=10)
 def load_data():
     try:
@@ -214,7 +262,6 @@ def load_data():
         return {}
 
 def save_data(key, value):
-    """Save key-value to Google Sheets. Automatically chunks large values."""
     try:
         client = init_connection()
         if client is None: return
@@ -254,7 +301,6 @@ def save_data(key, value):
 # ── State ──────────────────────────────────────────────────
 def init_state():
     if "app_ready" in st.session_state: return
-    # [修復#6] 初始化失敗時明確回報，不陷入無限循環
     try:
         raw = load_data()
         st.session_state.bookings = raw
@@ -286,7 +332,6 @@ def init_state():
         st.session_state.month_idx      = 0
         st.session_state.sel_week_start = None
         st.session_state.sel_cell       = None
-        # [修復#2] 管理員 session 驗證旗標及登入嘗試計數
         st.session_state.is_admin_auth  = False
         st.session_state.login_attempts = 0
         st.session_state.app_ready      = True
@@ -296,9 +341,7 @@ def init_state():
 
 init_state()
 
-# ── [修復#2] 管理員驗證守門函式 ──────────────────────────
 def require_admin():
-    """所有管理員頁面開頭都必須呼叫此函式。"""
     if not st.session_state.get("is_admin_auth", False):
         nav("admin_login")
         st.stop()
@@ -346,9 +389,7 @@ def day_status(d: date, min_d: date, max_d: date) -> str:
     if not is_open(d): return "closed"
     return "open"
 
-# [修復#9] 建立志工名字索引字典，查詢由 O(n) 提升為 O(1)
 def get_volunteer_index() -> dict:
-    """回傳 {name: volunteer_dict} 的索引表。"""
     return {v["name"]: v for v in st.session_state.get("volunteers", [])}
 
 def find_volunteer_by_name(name: str):
@@ -384,7 +425,7 @@ def page_calendar():
             st.session_state.month_idx = idx - 1
             st.session_state.sel_week_start = None; st.rerun()
     _nc2.markdown(f"<div style='text-align:center;font-weight:700;font-size:18px;"
-                  f"line-height:36px;white-space:nowrap;'>{MON_EN[month]} {year}</div>",
+                  f"line-height:36px;white-space:nowrap;color:#000000;'>{MON_EN[month]} {year}</div>",
                   unsafe_allow_html=True)
     with _nc3:
         if st.button("▶", key="next_m", disabled=(idx>=len(months)-1), use_container_width=True):
@@ -452,7 +493,7 @@ def _schedule_info_panel(months, volunteers):
     st.markdown(
         '<div style="background:#fffbeb;border:1.5px solid #d1a84b;border-radius:8px;'
         'padding:6px 12px;margin-top:4px;margin-bottom:0;">'
-        '<span style="font-weight:700;font-size:13px;color:#92400e;">🪪 請輸入身分證字號以確認排班資訊</span>'
+        '<span style="font-weight:700;font-size:13px;color:#7a3800;">🪪 請輸入身分證字號以確認排班資訊</span>'
         '</div>', unsafe_allow_html=True)
 
     id_col, btn_col = st.columns([3, 1])
@@ -472,7 +513,6 @@ def _schedule_info_panel(months, volunteers):
         else:
             id_norm = inp[0].upper() + inp[1:]
             matched = None
-            # [修復#9] 改用索引字典查詢
             vol_index = get_volunteer_index()
             for v in vol_index.values():
                 vid = v.get("id","").strip()
@@ -523,20 +563,20 @@ def _schedule_info_panel(months, volunteers):
         rows_html = ""
         for i, (d_obj, shift, zone) in enumerate(records):
             bg = "#fffbeb" if i % 2 == 0 else "#ffffff"
-            date_lbl = f"{d_obj.month}/{d_obj.day}&nbsp;<span style='color:#888;font-size:11px;'>(週{WD[d_obj.weekday()]})</span>"
+            date_lbl = f"{d_obj.month}/{d_obj.day}&nbsp;<span style='color:#555555;font-size:11px;'>(週{WD[d_obj.weekday()]})</span>"
             rows_html += (
                 f'<div style="display:flex;align-items:center;padding:6px 10px;'
-                f'background:{bg};border-bottom:1px solid #f0e8d0;gap:6px;">'
-                f'<span style="flex:0 0 66px;font-weight:700;font-size:13px;">{date_lbl}</span>'
-                f'<span style="flex:0 0 30px;background:#3b82f6;color:white;border-radius:4px;'
+                f'background:{bg};border-bottom:1px solid #e0d8c0;gap:6px;">'
+                f'<span style="flex:0 0 66px;font-weight:700;font-size:13px;color:#000000;">{date_lbl}</span>'
+                f'<span style="flex:0 0 30px;background:#3b82f6;color:#ffffff;border-radius:4px;'
                 f'font-size:11px;font-weight:600;text-align:center;padding:2px 3px;">{shift}</span>'
-                f'<span style="flex:1;font-size:12px;color:#374151;">{zone}</span>'
+                f'<span style="flex:1;font-size:12px;color:#000000;">{zone}</span>'
                 f'</div>'
             )
         total_bar = (
             f'<div style="display:flex;justify-content:flex-end;align-items:center;'
             f'padding:7px 12px;background:#fef3c7;border-top:2px solid #f59e0b;">'
-            f'<span style="font-size:13px;font-weight:700;color:#92400e;">'
+            f'<span style="font-size:13px;font-weight:700;color:#7a3800;">'
             f'本月預計排班總時數&nbsp;&nbsp;'
             f'<span style="font-size:20px;color:#dc2626;">{total_hrs}</span>&nbsp;小時</span></div>'
         )
@@ -545,8 +585,8 @@ def _schedule_info_panel(months, volunteers):
             f'{rows_html}{total_bar}</div>', unsafe_allow_html=True)
     else:
         st.markdown(
-            f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
-            f'padding:10px;text-align:center;color:#6b7280;font-size:13px;margin-top:4px;">'
+            f'<div style="background:#f9fafb;border:1px solid #cccccc;border-radius:8px;'
+            f'padding:10px;text-align:center;color:#555555;font-size:13px;margin-top:4px;">'
             f'📭 {sel_y}年{sel_m}月 尚無排班記錄</div>', unsafe_allow_html=True)
 
     _duty_history_section(verified_name, verified_id)
@@ -589,22 +629,22 @@ def _duty_history_section(verified_name, verified_id):
 
     if my_rows:
         st.markdown(
-            f'<div style="background:white;border:1.5px solid #bfdbfe;border-radius:8px;'
+            f'<div style="background:#ffffff;border:1.5px solid #bfdbfe;border-radius:8px;'
             f'padding:12px 14px;margin-top:2px;">'
             f'<div style="font-size:13px;color:#1e40af;font-weight:600;margin-bottom:6px;">'
             f'{chosen["name"]}</div>'
             f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<span style="font-size:13px;color:#374151;">累計值勤時數</span>'
+            f'<span style="font-size:13px;color:#000000;">累計值勤時數</span>'
             f'<span style="font-size:22px;font-weight:700;color:#dc2626;">{total_disp} 小時</span>'
             f'</div>'
-            f'<div style="font-size:12px;color:#6b7280;margin-top:6px;">謝謝您的付出 ～</div>'
+            f'<div style="font-size:12px;color:#555555;margin-top:6px;">謝謝您的付出 ～</div>'
             f'</div>', unsafe_allow_html=True)
         if st.button("⬇️ 下載個人值勤資料", key="duty_dl_btn", use_container_width=True):
             _export_duty_excel(verified_name, chosen["name"], my_rows, total_hrs)
     else:
         st.markdown(
-            f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;'
-            f'padding:10px;text-align:center;color:#9ca3af;font-size:13px;margin-top:2px;">'
+            f'<div style="background:#f9fafb;border:1px solid #cccccc;border-radius:8px;'
+            f'padding:10px;text-align:center;color:#888888;font-size:13px;margin-top:2px;">'
             f'📭 {chosen["name"]} 查無您的值勤記錄</div>', unsafe_allow_html=True)
 
 def _export_duty_excel(vol_name, file_label, rows, total_hrs):
@@ -764,7 +804,6 @@ def page_week_grid():
         vol_names   = [v["name"] for v in volunteers]
         has_vol_list = bool(vol_names)
 
-        # [修復#5] 修正空格欄位的說明文字，移除誤導性的「刪除」字眼
         if current_occupant:
             st.markdown(
                 f'<div class="cancel-hint">'
@@ -782,7 +821,6 @@ def page_week_grid():
         if st.button("儲存", key="save_entry", use_container_width=True):
             entry = entry_val.strip()
 
-            # ── CASE 1: Cell is OCCUPIED → cancellation flow ──
             if current_occupant:
                 if not entry:
                     st.error("❌ 請輸入身分證字號以取消排班。")
@@ -806,8 +844,6 @@ def page_week_grid():
                 else:
                     st.error("❌ 此志工無身分證記錄，請洽管理員處理。")
                     st.stop()
-
-            # ── CASE 2: Cell is EMPTY → booking flow ──
             else:
                 if not entry:
                     st.error("❌ 請輸入姓名以登記排班，若要取消排班請輸入當事人身分證號。")
@@ -836,9 +872,8 @@ def page_week_grid():
 
 # ── Admin pages ────────────────────────────────────────────
 def page_admin_login():
-    st.markdown("<h2>管理員登入</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#000000;'>管理員登入</h2>", unsafe_allow_html=True)
 
-    # [修復#2] 暴力破解防護
     attempts = st.session_state.get("login_attempts", 0)
     if attempts >= MAX_LOGIN_ATTEMPTS:
         st.error(f"❌ 嘗試次數過多（{MAX_LOGIN_ATTEMPTS} 次），請重新整理頁面後再試。")
@@ -852,7 +887,7 @@ def page_admin_login():
     with c1:
         if st.button("登入", key="do_login", type="primary", use_container_width=True):
             if pwd == ADMIN_PW:
-                st.session_state.is_admin_auth = True   # [修復#2] 設定 session 驗證旗標
+                st.session_state.is_admin_auth = True
                 st.session_state.login_attempts = 0
                 nav("admin")
             else:
@@ -864,7 +899,7 @@ def page_admin_login():
             nav("calendar")
 
 def page_admin():
-    require_admin()  # [修復#2] 守門驗證
+    require_admin()
     st.markdown('<div class="admin-card"><div class="admin-title">管理員後台</div>', unsafe_allow_html=True)
     for label, dest in [("管理開放月份","admin_months"),("休館設定","admin_holidays"),
                         ("公告修改","admin_ann"),("區域名稱設定","admin_zones"),
@@ -878,7 +913,6 @@ def page_admin():
     st.write("")
     c1, c2 = st.columns(2)
     with c1:
-        # [修復#8] 新增登出按鈕
         st.markdown('<div class="admin-back-btn">', unsafe_allow_html=True)
         if st.button("🔓 登出", key="admin_logout", use_container_width=True):
             st.session_state.is_admin_auth = False
@@ -891,7 +925,7 @@ def page_admin():
         st.markdown('</div>', unsafe_allow_html=True)
 
 def page_admin_months():
-    require_admin()  # [修復#2]
+    require_admin()
     st.markdown("## 管理開放月份")
     cur = sorted(st.session_state.open_months_list)
     if cur: st.info("目前開放：" + "、".join([f"{y}年{m}月" for y,m in cur]))
@@ -934,13 +968,13 @@ def render_mini_cal(year, month):
     return html
 
 def page_admin_holidays():
-    require_admin()  # [修復#2]
+    require_admin()
     st.markdown("## 休館設定")
     st.caption("預設週一及週日休館，可額外設定特別休館/開館日。")
     st.markdown('<div class="cal-legend"><span><span class="leg-dot" style="background:#e0e0e0;"></span>預設休館</span>'
                 '<span><span class="leg-dot" style="background:#ef4444;"></span>特別休館</span>'
                 '<span><span class="leg-dot" style="background:#4ECDC4;"></span>特別開館</span>'
-                '<span><span class="leg-dot" style="background:#fff;border:1px solid #ccc;"></span>正常開館</span></div>', unsafe_allow_html=True)
+                '<span><span class="leg-dot" style="background:#fff;border:1px solid #333;"></span>正常開館</span></div>', unsafe_allow_html=True)
     for y, m in sorted(st.session_state.open_months_list):
         st.markdown(render_mini_cal(y, m), unsafe_allow_html=True)
     st.markdown("---")
@@ -965,7 +999,7 @@ def page_admin_holidays():
     if st.button("← 返回", key="bk_h"): nav("admin")
 
 def page_admin_export():
-    require_admin()  # [修復#2]
+    require_admin()
     st.markdown("## 📥 下載值班表 Excel")
     zone_names = st.session_state.zone_names
     rows = []
@@ -1004,7 +1038,7 @@ def page_admin_export():
     if st.button("← 返回", key="bk_ex"): nav("admin")
 
 def page_admin_ann():
-    require_admin()  # [修復#2]
+    require_admin()
     st.markdown("## 公告修改")
     ann = st.text_area("公告內容",st.session_state.announcement,height=160,key="ann_ta")
     if st.button("✅ 更新公告",key="upd_ann",type="primary"):
@@ -1014,7 +1048,7 @@ def page_admin_ann():
     if st.button("← 返回",key="bk_ann"): nav("admin")
 
 def page_admin_zones():
-    require_admin()  # [修復#2]
+    require_admin()
     st.markdown("## 區域名稱設定")
     new_names = []
     for i in range(6): new_names.append(st.text_input(f"區域 {i+1}", value=st.session_state.zone_names[i], key=f"zn_{i}"))
@@ -1025,7 +1059,7 @@ def page_admin_zones():
     if st.button("← 返回",key="bk_zn"): nav("admin")
 
 def page_admin_volunteers():
-    require_admin()  # [修復#2]
+    require_admin()
     st.markdown("## 👥 志工名單管理")
     st.caption("登錄姓名與身分證字號。")
     volunteers = st.session_state.get("volunteers", [])
@@ -1036,10 +1070,10 @@ def page_admin_volunteers():
         to_delete = []
         for i, v in enumerate(volunteers):
             c1, c2, c3 = st.columns([3, 4, 1])
-            c1.markdown(f'<div style="padding:4px 0;font-weight:600;">{v["name"]}</div>', unsafe_allow_html=True)
+            c1.markdown(f'<div style="padding:4px 0;font-weight:600;color:#000000;">{v["name"]}</div>', unsafe_allow_html=True)
             vid = v.get("id","")
             masked = (vid[:3] + "***" + vid[-1]) if len(vid) >= 4 else ("***" if vid else "（未設定）")
-            c2.markdown(f'<div style="padding:4px 0;color:#666;font-size:13px;">{masked}</div>', unsafe_allow_html=True)
+            c2.markdown(f'<div style="padding:4px 0;color:#555555;font-size:13px;">{masked}</div>', unsafe_allow_html=True)
             if c3.button("✕", key=f"del_v_{i}"): to_delete.append(i)
         if to_delete:
             volunteers = [v for i,v in enumerate(volunteers) if i not in to_delete]
@@ -1084,7 +1118,7 @@ def page_admin_volunteers():
     if st.button("← 返回", key="bk_vol"): nav("admin")
 
 def page_admin_duty_files():
-    require_admin()  # [修復#2]
+    require_admin()
     st.markdown("## 📊 值勤時數檔案管理")
     st.caption("上傳各年度志工值勤紀錄 Excel，志工輸入身分證後系統自動過濾顯示個人資料。")
 
@@ -1098,7 +1132,7 @@ def page_admin_duty_files():
             new_label = c1.text_input("顯示名稱", value=f["name"], key=f"df_name_{i}",
                                        label_visibility="collapsed")
             row_count = len(json.loads(st.session_state.bookings.get(f["key"],"[]")))
-            c2.markdown(f'<div style="padding:6px 0;font-size:12px;color:#666;">{row_count} 筆記錄</div>',
+            c2.markdown(f'<div style="padding:6px 0;font-size:12px;color:#555555;">{row_count} 筆記錄</div>',
                         unsafe_allow_html=True)
             if c3.button("✕", key=f"df_del_{i}"):
                 to_delete.append(i)
@@ -1177,7 +1211,6 @@ def page_admin_duty_files():
                         except: pass
                         records.append({"name": nm, "id": rid, "date": dt, "hours": hrs})
 
-                    # [修復#3] 用 timestamp 當 key，避免刪除再新增時編號碰撞
                     data_key = f"SYS_DUTY_DATA_{int(time.time())}"
                     save_data(data_key, json.dumps(records, ensure_ascii=False))
                     duty_files.append({"name": display_name.strip(), "key": data_key})
