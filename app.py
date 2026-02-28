@@ -18,7 +18,10 @@ st.set_page_config(page_title="志工排班表", page_icon="🚢", layout="wide"
 INTERNAL_ZONES      = ["Z1","Z2","Z3","Z4","Z5","Z6"]
 DEFAULT_ZONE_NAMES = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
 
-ADMIN_PW = st.secrets.get("admin_pw", "781223")
+# ── 密碼與解鎖碼從 st.secrets 讀取，若未設定則為空字串（拒絕登入）──
+ADMIN_PW    = st.secrets.get("admin_pw", "1989781223")
+UNLOCK_CODE = st.secrets.get("unlock_code", "19900423")   # 預設解鎖碼
+
 MAX_LOGIN_ATTEMPTS = 5
 
 WD = {0:"一",1:"二",2:"三",3:"四",4:"五",5:"六",6:"日"}
@@ -251,6 +254,10 @@ div[data-testid="stSelectbox"],div[data-testid="stTextInput"]{
 
 .cancel-hint{background:#fff8e1;border:1.5px solid #f59e0b;border-radius:8px;
     padding:8px 12px;font-size:12px;color:#7a3800!important;margin-bottom:6px;line-height:1.5;}
+
+/* ── 解鎖提示框樣式 ── */
+.unlock-box{background:#fff3cd;border:2px solid #f59e0b;border-radius:8px;
+    padding:12px 14px;margin-bottom:10px;font-size:13px;color:#7a3800!important;line-height:1.6;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -909,34 +916,82 @@ def page_week_grid():
         st.session_state.page = "calendar"
         st.session_state.sel_cell = None; st.rerun()
 
-# ── Admin pages ────────────────────────────────────────────
+# ── Page: Admin Login（含解鎖碼功能） ──────────────────────
 def page_admin_login():
     st.markdown("<h2 style='color:#000000;'>管理員登入</h2>", unsafe_allow_html=True)
 
-    attempts = st.session_state.get("login_attempts", 0)
-    if attempts >= MAX_LOGIN_ATTEMPTS:
-        st.error(f"❌ 嘗試次數過多（{MAX_LOGIN_ATTEMPTS} 次），請重新整理頁面後再試。")
-        if st.button("返回", key="cancel_login_locked", use_container_width=True):
-            st.session_state.login_attempts = 0
+    # ── 若 admin_pw 未在 secrets 設定，直接拒絕所有人登入 ──
+    if not ADMIN_PW:
+        st.error("❌ 系統尚未設定管理員密碼，請聯絡系統管理員在 Secrets 中設定 admin_pw。")
+        if st.button("返回", key="cancel_login_nopw", use_container_width=True):
             nav("calendar")
         return
 
+    attempts = st.session_state.get("login_attempts", 0)
+
+    # ════════════════════════════════════════
+    # 已鎖住：顯示解鎖碼輸入框
+    # ════════════════════════════════════════
+    if attempts >= MAX_LOGIN_ATTEMPTS:
+        st.markdown(
+            '<div class="unlock-box">'
+            '🔒 <b>登入已鎖住</b><br>'
+            f'密碼連續輸入錯誤 {MAX_LOGIN_ATTEMPTS} 次，系統已暫時鎖住。<br>'
+            '請在下方輸入解鎖碼以重置，或按「返回」離開。'
+            '</div>', unsafe_allow_html=True)
+
+        unlock_input = st.text_input(
+            "解鎖碼", type="password",
+            key="pwd_unlock",
+            placeholder="請輸入解鎖碼")
+
+        u1, u2 = st.columns(2)
+        with u1:
+            if st.button("🔓 解鎖", key="do_unlock", type="primary", use_container_width=True):
+                if UNLOCK_CODE and unlock_input == UNLOCK_CODE:
+                    # 解鎖成功：重置計數器並提示重新登入
+                    st.session_state.login_attempts = 0
+                    st.success("✅ 解鎖成功！請重新輸入管理員密碼登入。")
+                    st.rerun()
+                else:
+                    st.error("❌ 解鎖碼錯誤，請重新確認。")
+        with u2:
+            if st.button("返回", key="cancel_login_locked", use_container_width=True):
+                st.session_state.login_attempts = 0
+                nav("calendar")
+        return  # 鎖住狀態到此結束，不顯示正常登入框
+
+    # ════════════════════════════════════════
+    # 正常登入流程
+    # ════════════════════════════════════════
+    remaining = MAX_LOGIN_ATTEMPTS - attempts
+    if attempts > 0:
+        st.warning(f"⚠️ 密碼錯誤，剩餘嘗試次數：{remaining} 次")
+
     pwd = st.text_input("密碼", type="password", key="pwd_in", placeholder="請輸入管理員密碼")
+
     c1, c2 = st.columns(2)
     with c1:
         if st.button("登入", key="do_login", type="primary", use_container_width=True):
             if pwd == ADMIN_PW:
-                st.session_state.is_admin_auth = True
+                # 登入成功
+                st.session_state.is_admin_auth  = True
                 st.session_state.login_attempts = 0
                 nav("admin")
             else:
+                # 登入失敗：累加計數
                 st.session_state.login_attempts = attempts + 1
-                remaining = MAX_LOGIN_ATTEMPTS - st.session_state.login_attempts
-                st.error(f"密碼錯誤，剩餘嘗試次數：{remaining}")
+                new_remaining = MAX_LOGIN_ATTEMPTS - st.session_state.login_attempts
+                if new_remaining <= 0:
+                    st.error(f"❌ 密碼錯誤，已達上限 {MAX_LOGIN_ATTEMPTS} 次，系統已鎖住。")
+                else:
+                    st.error(f"❌ 密碼錯誤，剩餘嘗試次數：{new_remaining} 次")
+                st.rerun()
     with c2:
         if st.button("返回", key="cancel_login", use_container_width=True):
             nav("calendar")
 
+# ── Admin pages ────────────────────────────────────────────
 def page_admin():
     require_admin()
     st.markdown('<div class="admin-card"><div class="admin-title">管理員後台</div>', unsafe_allow_html=True)
