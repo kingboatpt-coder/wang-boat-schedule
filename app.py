@@ -19,7 +19,7 @@ INTERNAL_ZONES      = ["Z1","Z2","Z3","Z4","Z5","Z6"]
 DEFAULT_ZONE_NAMES = ["1F-沉浸室劇場","1F-手扶梯驗票","2F展區、特展","3F-展區","4F-展區","5F-閱讀區"]
 
 # ── 密碼與解鎖碼從 st.secrets 讀取，若未設定則為空字串（拒絕登入）──
-ADMIN_PW    = st.secrets.get("admin_pw", "1989781223")
+ADMIN_PW    = st.secrets.get("admin_pw", "19891223")
 UNLOCK_CODE = st.secrets.get("unlock_code", "19900423")   # 預設解鎖碼
 
 MAX_LOGIN_ATTEMPTS = 5
