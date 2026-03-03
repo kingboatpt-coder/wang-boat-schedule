@@ -895,7 +895,7 @@ def page_week_grid():
                     st.error("❌ 請輸入姓名以登記排班，若要取消排班請輸入當事人身分證號。")
                     st.stop()
                 if has_vol_list and entry not in vol_names:
-                    st.error(f"❌ 「{entry}」不在志工名單中，請確認姓名是否正確。")
+                    st.error(f"❌ 「{entry}」本欄位無人排班，無須取消。")
                     st.stop()
                 fresh = load_data()
                 cloud = fresh.get(key,"")
