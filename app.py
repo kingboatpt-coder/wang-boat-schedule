@@ -30,49 +30,87 @@ MON_EN = ["","January","February","March","April","May","June",
 
 st.markdown("""
 <style>
+/* ══════════════════════════════════════════════════
+   BASE RESET & RESPONSIVE FOUNDATION
+   使用 CSS 變數統一管理所有尺寸，配合 clamp() 自動縮放
+══════════════════════════════════════════════════ */
+:root {
+    /* 字型：在 320px~428px 之間平滑縮放 */
+    --fs-xs:   clamp(9px,  2.4vw, 11px);
+    --fs-sm:   clamp(11px, 2.8vw, 13px);
+    --fs-base: clamp(12px, 3.2vw, 15px);
+    --fs-md:   clamp(13px, 3.5vw, 16px);
+    --fs-lg:   clamp(15px, 4.0vw, 18px);
+    --fs-xl:   clamp(18px, 5.0vw, 24px);
+    /* 間距 */
+    --sp-xs: clamp(2px, 0.6vw, 4px);
+    --sp-sm: clamp(4px, 1.2vw, 8px);
+    --sp-md: clamp(8px, 2.4vw, 14px);
+    /* 觸控最小尺寸：iOS/Android 建議 44px */
+    --touch-min: max(44px, 11vw);
+    /* 主色 */
+    --red: #ef4444;
+    --teal: #4ECDC4;
+}
+
 #MainMenu,footer,header{visibility:hidden;}
 [data-testid="stToolbar"],[data-testid="stDecoration"],
 [data-testid="stElementToolbar"],
 section[data-testid="stSidebar"]{display:none!important;}
 
-/* ══ 全站白底黑字（修復 Safari 文字顯示問題） ══ */
+/* ══ 全站白底黑字 ══ */
 .stApp{background:#ffffff!important;color:#000000!important;}
+
+/* ══ 主容器：流體寬度，不再寫死 500px ══ */
 .block-container{
-    padding:10px 6px 20px 6px!important;
-    max-width:500px!important;margin:0 auto!important;
-    background:#ffffff!important;
+    padding: var(--sp-sm) var(--sp-sm) 20px var(--sp-sm) !important;
+    /* 最大寬度跟著視窗走，小螢幕全滿，大螢幕上限 520px */
+    max-width: min(520px, 100vw) !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
 }
-html,body{
-    background:#ffffff!important;
-    color:#000000!important;
-    font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;
+
+html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
+    /* 防止 iOS Safari 橫轉時自動放大字型 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* 防止水平捲軸 */
+    overflow-x: hidden;
+    max-width: 100vw;
 }
+*, *::before, *::after { box-sizing: border-box; }
+
 [class*="css"]{font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;}
 
-/* 強制所有常見元素文字為黑色 */
+/* ══ 強制所有常見元素文字為黑色 ══ */
 p,span,div,label,li,td,th,h1,h2,h3,h4,h5,h6,
 a,caption,strong,em,b,i,small{color:#000000!important;}
 
-/* Streamlit markdown 容器 */
 [data-testid="stMarkdownContainer"],
 [data-testid="stMarkdownContainer"] *{color:#000000!important;}
 
-/* 輸入框 */
+/* ══ 輸入框 ══ */
 .stTextInput input,
 [data-baseweb="input"] input,
 [data-baseweb="textarea"] textarea{
     color:#000000!important;
     background:#ffffff!important;
     border:1px solid #999!important;
+    font-size: var(--fs-base) !important;
+    /* 防止 iOS 自動縮放（輸入框 font-size < 16px 時會觸發） */
+    font-size: max(16px, var(--fs-base)) !important;
 }
 .stTextInput input::placeholder,
 [data-baseweb="input"] input::placeholder{color:#999999!important;}
 
-/* 下拉選單 */
+/* ══ 下拉選單 ══ */
 [data-testid="stSelectbox"] *,
 [data-baseweb="select"] *{color:#000000!important;background:#ffffff!important;}
 
-/* 下拉選單彈出視窗 */
 [data-baseweb="popover"],[data-baseweb="popover"] *,
 [data-baseweb="menu"],[data-baseweb="menu"] *,
 [data-baseweb="list"],[data-baseweb="list"] *{
@@ -80,7 +118,7 @@ a,caption,strong,em,b,i,small{color:#000000!important;}
 }
 [data-baseweb="menu"] li:hover,[data-baseweb="list"] li:hover{background:#f0f0f0!important;}
 
-/* 其他元件 */
+/* ══ 其他元件 ══ */
 [data-testid="stAlert"] *{color:#000000!important;}
 [data-testid="stCaptionContainer"] *{color:#444444!important;}
 [data-testid="stInfo"] *{color:#000000!important;}
@@ -89,13 +127,15 @@ a,caption,strong,em,b,i,small{color:#000000!important;}
 [data-testid="stTextArea"] textarea{color:#000000!important;background:#ffffff!important;}
 [data-testid="stDataFrame"] *{color:#000000!important;}
 
-/* ══ 強制所有按鈕白底黑字（修復 Safari iOS 深色模式黑色按鈕問題） ══ */
+/* ══ 按鈕全域：白底黑字，確保觸控目標夠大 ══ */
 button{
     color:#000000!important;
     background-color:#ffffff!important;
     background:#ffffff!important;
+    min-height: var(--touch-min) !important;
+    /* 防止字體在小螢幕上變得太小 */
+    font-size: var(--fs-base) !important;
 }
-/* Streamlit secondary button */
 button[data-testid="baseButton-secondary"],
 [data-testid="stBaseButton-secondary"],
 [data-testid="stButton"] button,
@@ -105,7 +145,6 @@ button[data-testid="baseButton-secondary"],
     color:#000000!important;
     border:1.5px solid #333333!important;
 }
-/* Streamlit primary button（紅色保留） */
 button[data-testid="baseButton-primary"],
 [data-testid="stBaseButton-primary"],
 button[kind="primary"]{
@@ -114,9 +153,7 @@ button[kind="primary"]{
     color:#ffffff!important;
     border:none!important;
 }
-/* disabled button */
-button:disabled,
-button[disabled]{
+button:disabled,button[disabled]{
     background-color:#eeeeee!important;
     background:#eeeeee!important;
     color:#aaaaaa!important;
@@ -124,140 +161,315 @@ button[disabled]{
     opacity:0.7!important;
 }
 
-.header-row{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;padding-left:4px;}
-.header-title{font-size:24px;font-weight:700;color:#000000;margin:0;}
-.header-date{font-size:16px;font-weight:500;color:#444444;}
+/* ══════════════════════════════════════════════════
+   標題列
+══════════════════════════════════════════════════ */
+.header-row{
+    display:flex;align-items:baseline;gap:8px;
+    margin-bottom:var(--sp-sm);padding-left:2px;
+}
+.header-title{
+    font-size: var(--fs-xl);
+    font-weight:700;color:#000000;margin:0;
+    white-space: nowrap;
+}
+.header-date{
+    font-size: var(--fs-md);
+    font-weight:500;color:#444444;
+    white-space: nowrap;
+}
 
+/* ══════════════════════════════════════════════════
+   月曆：7 欄日期格子 — 使用 vw 讓格子跟螢幕同比縮放
+══════════════════════════════════════════════════ */
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)){
-    display:grid!important;grid-template-columns:repeat(7,1fr)!important;
-    gap:1px!important;width:100%!important;
+    display:grid!important;
+    grid-template-columns:repeat(7,1fr)!important;
+    gap: clamp(1px, 0.4vw, 2px) !important;
+    width:100%!important;
     margin-top:0!important;margin-bottom:0!important;
     padding-top:0!important;padding-bottom:0!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button{
-    width:100%!important;min-width:0!important;padding:0!important;
-    aspect-ratio:1/1!important;height:auto!important;
-    display:flex;align-items:center;justify-content:center;
+    width:100%!important;min-width:0!important;
+    padding:0!important;
+    /* 用 vw 讓格子高度跟寬度一樣（正方形），上限 52px */
+    height: clamp(36px, 11.5vw, 52px) !important;
+    aspect-ratio: unset !important;   /* 改用固定高度，避免在部分瀏覽器 aspect-ratio 不穩 */
+    display:flex!important;align-items:center!important;justify-content:center!important;
     line-height:1!important;border-radius:4px!important;
-    border:1px solid #333333!important;font-weight:600!important;font-size:14px!important;
+    border:1px solid #333333!important;
+    font-weight:600!important;
+    font-size: clamp(11px, 3.2vw, 15px) !important;
     margin:0!important;color:#000000!important;
     background:#ffffff!important;background-color:#ffffff!important;
+    /* 觸控回饋 */
+    -webkit-tap-highlight-color: rgba(0,0,0,0.08);
 }
-/* 選中週次的日期格子：紅底白字 */
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button[data-testid="baseButton-primary"],
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) button[kind="primary"]{
     background:#ef4444!important;background-color:#ef4444!important;
     color:#ffffff!important;border-color:#ef4444!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) ~ div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)){
-    margin-top:-4px!important;
+    margin-top: clamp(-4px, -0.8vw, -1px) !important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7)) div[data-testid="stVerticalBlock"]{gap:0!important;}
 div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stHorizontalBlock"]:has(>div:nth-child(7))){
     padding-top:0!important;padding-bottom:0!important;margin-top:0!important;margin-bottom:0!important;
 }
 
+/* ══════════════════════════════════════════════════
+   月份導覽列
+══════════════════════════════════════════════════ */
 .mnav-row{margin-bottom:4px;}
 .mnav-row div[data-testid="stHorizontalBlock"]{align-items:center!important;gap:0!important;}
 .mnav-row button{
     background:transparent!important;border:none!important;box-shadow:none!important;
-    font-size:22px!important;font-weight:700!important;color:#000000!important;
-    height:36px!important;min-width:36px!important;padding:0!important;
+    font-size: clamp(18px, 5.5vw, 24px) !important;
+    font-weight:700!important;color:#000000!important;
+    height:40px!important;min-height:40px!important;
+    min-width: var(--touch-min) !important;
+    padding:0!important;
 }
 .mnav-row button:disabled{color:#cccccc!important;}
 
+/* 進入排班按鈕 */
 .enter-btn button{
     background:#ffffff!important;background-color:#ffffff!important;color:#000000!important;
-    border:1.5px solid #000000!important;height:40px!important;
-    font-size:15px!important;font-weight:700!important;margin-top:4px!important;
+    border:1.5px solid #000000!important;
+    height: var(--touch-min) !important;
+    font-size: var(--fs-md) !important;
+    font-weight:700!important;margin-top:4px!important;
 }
 
+/* 公告框 */
 .ann-box{background:#ffffff;border:2px solid #000000;border-radius:6px;margin-top:6px!important;margin-bottom:8px!important;}
-.ann-title{border-bottom:1.5px solid #000000;padding:6px;font-weight:700;text-align:center;font-size:15px;color:#000000!important;}
-.ann-body{padding:8px 12px;font-size:13px;line-height:1.5;color:#000000!important;white-space:pre-wrap;}
+.ann-title{border-bottom:1.5px solid #000000;padding:6px;font-weight:700;text-align:center;font-size: var(--fs-md);color:#000000!important;}
+.ann-body{padding:8px 12px;font-size: var(--fs-sm);line-height:1.6;color:#000000!important;white-space:pre-wrap;word-break:break-all;}
 
-.admin-tiny button{background:transparent!important;color:#666666!important;border:none!important;
-    font-size:11px!important;padding:0!important;height:auto!important;box-shadow:none!important;}
+/* 管理員小連結 */
+.admin-tiny button{
+    background:transparent!important;color:#666666!important;border:none!important;
+    font-size: var(--fs-xs) !important;
+    padding:0!important;height:auto!important;min-height:32px!important;box-shadow:none!important;
+}
 
-.wk-wrap{overflow-x:auto;margin:0 0 2px 0;}
-.wk-tbl{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed;}
-.wk-tbl th{border:1px solid #000000;padding:2px;text-align:center;background:#eeeeee;
-    font-weight:600;white-space:normal!important;word-wrap:break-word!important;
-    vertical-align:middle;height:35px;font-size:11px;color:#000000!important;}
-.wk-tbl td{border:1px solid #000000;padding:2px;text-align:center;vertical-align:middle;height:35px;color:#000000!important;}
-.wk-date-cell{background:#f5f5f5;font-weight:700;font-size:11px;width:35px;color:#000000!important;}
-.wk-shift-cell{background:#e8e8e8;font-size:10px;width:20px;font-weight:600;
-    writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1px;padding:0 2px;color:#000000!important;}
-.wk-filled-cell{background:#FFD700;color:#000000!important;}
-.wk-empty-cell{background:#ffffff;color:#000000!important;}
-.wk-closed-cell{background:#e0e0e0;color:#444444!important;font-size:10px;letter-spacing:1px;
-    background-image:repeating-linear-gradient(45deg,transparent,transparent 5px,#ccc 5px,#ccc 6px);}
-.wk-outrange-cell{background:#d0d0d0;
-    background-image:repeating-linear-gradient(45deg,transparent,transparent 4px,#aaa 4px,#aaa 5px);}
-.vol-name{font-size:13px;font-weight:600;color:#000000!important;display:block;
-    line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* ══════════════════════════════════════════════════
+   週排班表格
+   — 外層加 overflow-x:auto 讓小螢幕可橫滑
+   — 欄位寬度改用 vw + clamp，最小不低於可讀寬度
+══════════════════════════════════════════════════ */
+.wk-wrap{
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;  /* iOS 慣性捲動 */
+    margin: 0 0 2px 0;
+    /* 給使用者一個視覺提示說明可以滑動 */
+    scrollbar-width: thin;
+}
+.wk-wrap::-webkit-scrollbar{height:4px;}
+.wk-wrap::-webkit-scrollbar-thumb{background:#cccccc;border-radius:2px;}
+
+.wk-tbl{
+    border-collapse: collapse;
+    /* 不寫 width:100%，讓內容撐開，再靠外層 scroll */
+    min-width: 100%;
+    font-size: clamp(10px, 2.6vw, 12px);
+    table-layout: fixed;
+}
+.wk-tbl th{
+    border:1px solid #000000;padding:2px 1px;text-align:center;background:#eeeeee;
+    font-weight:600;white-space:normal!important;word-wrap:break-word!important;word-break:break-all;
+    vertical-align:middle;
+    height: clamp(30px, 8vw, 40px);
+    font-size: clamp(9px, 2.4vw, 11px);
+    color:#000000!important;
+}
+.wk-tbl td{
+    border:1px solid #000000;padding:2px 1px;text-align:center;vertical-align:middle;
+    height: clamp(28px, 7.5vw, 36px);
+    color:#000000!important;
+}
+/* 日期欄：固定用 vw 讓它跟螢幕縮放 */
+.wk-date-cell{
+    background:#f5f5f5;font-weight:700;
+    font-size: clamp(9px, 2.4vw, 11px);
+    width: clamp(28px, 8vw, 38px);
+    color:#000000!important;
+}
+/* 上午/下午欄：直書，盡量窄 */
+.wk-shift-cell{
+    background:#e8e8e8;
+    font-size: clamp(8px, 2.2vw, 10px);
+    width: clamp(14px, 4vw, 20px);
+    font-weight:600;
+    writing-mode:vertical-rl;text-orientation:upright;
+    letter-spacing:1px;padding:0 1px;
+    color:#000000!important;
+}
+/* 區域欄：剩餘空間平分，用 min-width 避免太擠 */
+.wk-filled-cell{
+    background:#FFD700;color:#000000!important;
+    min-width: clamp(36px, 10vw, 52px);
+}
+.wk-empty-cell{
+    background:#ffffff;color:#000000!important;
+    min-width: clamp(36px, 10vw, 52px);
+}
+.wk-closed-cell{
+    background:#e0e0e0;color:#444444!important;
+    font-size: clamp(8px, 2vw, 10px);
+    letter-spacing:0;
+    background-image:repeating-linear-gradient(45deg,transparent,transparent 5px,#ccc 5px,#ccc 6px);
+}
+.wk-outrange-cell{
+    background:#d0d0d0;
+    background-image:repeating-linear-gradient(45deg,transparent,transparent 4px,#aaa 4px,#aaa 5px);
+}
+/* 志工姓名在格子裡 */
+.vol-name{
+    font-size: clamp(9px, 2.4vw, 12px);
+    font-weight:600;color:#000000!important;display:block;
+    line-height:1.15;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width: clamp(30px, 8vw, 48px);   /* 防止撐爆格子 */
+    margin: 0 auto;
+}
 .sel-border{outline:2px solid #cc0000;outline-offset:-2px;}
 
+/* ══ 2 欄按鈕列（週導覽等） ══ */
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child){
     gap:4px!important;margin-top:2px!important;margin-bottom:2px!important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child) button{
     background:#ffffff!important;color:#000000!important;
     border:1.5px solid #555555!important;border-radius:8px!important;
-    height:38px!important;font-size:11px!important;font-weight:600!important;width:100%!important;
+    height: var(--touch-min) !important;
+    font-size: clamp(10px, 2.6vw, 12px) !important;
+    font-weight:600!important;width:100%!important;
+    white-space: normal !important;    /* 允許換行，防止文字溢出 */
+    line-height: 1.2 !important;
+    padding: 4px 2px !important;
 }
 div[data-testid="stHorizontalBlock"]:has(>div:nth-child(2):last-child) button:disabled{
     background:#eeeeee!important;color:#aaaaaa!important;border-color:#dddddd!important;
 }
 
-div[data-testid="stSelectbox"] label,div[data-testid="stTextInput"] label{
-    font-size:13px!important;margin-bottom:0!important;
-    padding-bottom:0!important;line-height:1.3!important;min-height:0!important;
-    color:#000000!important;
+/* ══ 表單元件標籤與輸入框 ══ */
+div[data-testid="stSelectbox"] label,
+div[data-testid="stTextInput"] label{
+    font-size: var(--fs-sm) !important;
+    margin-bottom:0!important;padding-bottom:0!important;
+    line-height:1.3!important;min-height:0!important;color:#000000!important;
 }
 div[data-testid="stSelectbox"] div[data-baseweb="select"],
 div[data-testid="stTextInput"] div[data-baseweb="input"]{
-    min-height:32px!important;height:32px!important;font-size:14px!important;
+    min-height:36px!important;font-size:16px!important; /* ≥16px 防 iOS 自動縮放 */
     background:#ffffff!important;
 }
-div[data-testid="stSelectbox"],div[data-testid="stTextInput"]{
-    margin-bottom:3px!important;margin-top:0!important;
-}
+div[data-testid="stSelectbox"],
+div[data-testid="stTextInput"]{margin-bottom:3px!important;margin-top:0!important;}
 
-.day-header{text-align:center;font-size:12px;font-weight:700;color:#333333;margin-bottom:2px;}
+/* 星期標題列 */
+.day-header{
+    text-align:center;
+    font-size: clamp(10px, 2.8vw, 12px);
+    font-weight:700;color:#333333;margin-bottom:2px;
+}
 .day-header.sun{color:#cc0000;}
 
-.admin-card{background:#ffffff;border-radius:14px;padding:28px 20px 20px;
-    box-shadow:0 2px 14px rgba(0,0,0,.10);}
-.admin-title{color:#e53e3e;text-align:center;font-size:26px;font-weight:700;margin-bottom:24px;}
-.admin-big-btn button{background:#4ECDC4!important;color:#000000!important;border:none!important;
-    border-radius:10px!important;height:64px!important;font-size:18px!important;font-weight:600!important;}
-.admin-back-btn button{background:#c8c8c8!important;color:#333333!important;border:none!important;
-    border-radius:10px!important;height:48px!important;font-size:15px!important;}
+/* ══════════════════════════════════════════════════
+   管理員後台
+══════════════════════════════════════════════════ */
+.admin-card{
+    background:#ffffff;border-radius:14px;
+    padding: clamp(16px, 5vw, 28px) clamp(12px, 4vw, 20px) 20px;
+    box-shadow:0 2px 14px rgba(0,0,0,.10);
+}
+.admin-title{color:#e53e3e;text-align:center;font-size: var(--fs-xl);font-weight:700;margin-bottom:20px;}
+.admin-big-btn button{
+    background:#4ECDC4!important;color:#000000!important;border:none!important;
+    border-radius:10px!important;
+    height: clamp(52px, 14vw, 64px) !important;
+    font-size: clamp(14px, 4vw, 18px) !important;
+    font-weight:600!important;
+}
+.admin-back-btn button{
+    background:#c8c8c8!important;color:#333333!important;border:none!important;
+    border-radius:10px!important;
+    height: clamp(40px, 11vw, 48px) !important;
+    font-size: clamp(13px, 3.5vw, 15px) !important;
+}
 
+/* ══ 小型月曆（假日設定頁） ══ */
 .mini-cal-wrap{background:#ffffff;border-radius:10px;padding:10px 8px 8px;
     border:1px solid #333333;margin-bottom:10px;}
-.mini-cal-month{text-align:center;font-weight:700;font-size:14px;margin-bottom:6px;color:#000000!important;}
+.mini-cal-month{text-align:center;font-weight:700;font-size: var(--fs-md);margin-bottom:6px;color:#000000!important;}
 .mini-cal-tbl{width:100%;border-collapse:collapse;table-layout:fixed;}
-.mini-cal-tbl th{font-size:10px;font-weight:600;color:#555555!important;text-align:center;padding:2px 0 4px;}
+.mini-cal-tbl th{
+    font-size: clamp(9px, 2.4vw, 10px);
+    font-weight:600;color:#555555!important;text-align:center;padding:2px 0 4px;
+}
 .mini-cal-tbl th.mc-sun{color:#cc0000!important;}
 .mini-cal-tbl td{text-align:center;padding:2px 0;}
-.mc-day{width:30px;height:30px;border-radius:50%;display:inline-flex;
-    align-items:center;justify-content:center;font-size:12px;font-weight:500;margin:auto;}
+.mc-day{
+    width: clamp(24px, 7vw, 30px);
+    height: clamp(24px, 7vw, 30px);
+    border-radius:50%;display:inline-flex;
+    align-items:center;justify-content:center;
+    font-size: clamp(10px, 2.6vw, 12px);
+    font-weight:500;margin:auto;
+}
 .mc-normal{color:#000000!important;background:transparent;}
 .mc-closed-def{background:#e0e0e0;color:#555555!important;}
 .mc-closed-sp{background:#ef4444;color:#ffffff!important;}
 .mc-open-sp{background:#4ECDC4;color:#000000!important;}
-.mc-pad{color:#cccccc!important;font-size:12px;}
-.cal-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:8px;align-items:center;color:#000000!important;}
+.mc-pad{color:#cccccc!important;font-size: var(--fs-xs);}
+.cal-legend{
+    display:flex;flex-wrap:wrap;gap:6px;
+    font-size: clamp(10px, 2.6vw, 11px);
+    margin-bottom:8px;align-items:center;color:#000000!important;
+}
 .leg-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle;}
 
-.cancel-hint{background:#fff8e1;border:1.5px solid #f59e0b;border-radius:8px;
-    padding:8px 12px;font-size:12px;color:#7a3800!important;margin-bottom:6px;line-height:1.5;}
+/* 取消排班提示 */
+.cancel-hint{
+    background:#fff8e1;border:1.5px solid #f59e0b;border-radius:8px;
+    padding:8px 10px;
+    font-size: var(--fs-sm);
+    color:#7a3800!important;margin-bottom:6px;line-height:1.5;
+    word-break:break-all;
+}
 
-/* ── 解鎖提示框樣式 ── */
-.unlock-box{background:#fff3cd;border:2px solid #f59e0b;border-radius:8px;
-    padding:12px 14px;margin-bottom:10px;font-size:13px;color:#7a3800!important;line-height:1.6;}
+/* 解鎖提示框 */
+.unlock-box{
+    background:#fff3cd;border:2px solid #f59e0b;border-radius:8px;
+    padding:12px 14px;margin-bottom:10px;
+    font-size: var(--fs-sm);
+    color:#7a3800!important;line-height:1.6;
+}
+
+/* ══════════════════════════════════════════════════
+   Media Query：超小螢幕（< 360px，例如 iPhone SE 1st gen）
+══════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+    .header-title { font-size: 16px !important; }
+    .header-date  { font-size: 12px !important; }
+    .vol-name     { font-size: 8px !important; max-width: 26px !important; }
+    .wk-tbl       { font-size: 9px !important; }
+    .wk-tbl th    { font-size: 8px !important; height: 26px !important; }
+    .wk-tbl td    { height: 26px !important; }
+}
+
+/* ══════════════════════════════════════════════════
+   Media Query：橫向模式（landscape）
+   讓主容器寬度撐到螢幕高度的合理比例
+══════════════════════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 500px) {
+    .block-container {
+        max-width: min(480px, 90vw) !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -470,8 +682,8 @@ def page_calendar():
         if st.button("◀", key="prev_m", disabled=(idx==0), use_container_width=True):
             st.session_state.month_idx = idx - 1
             st.session_state.sel_week_start = None; st.rerun()
-    _nc2.markdown(f"<div style='text-align:center;font-weight:700;font-size:18px;"
-                  f"line-height:36px;white-space:nowrap;color:#000000;'>{MON_EN[month]} {year}</div>",
+    _nc2.markdown(f"<div style='text-align:center;font-weight:700;font-size:clamp(15px,4.5vw,18px);"
+                  f"line-height:40px;white-space:nowrap;color:#000000;'>{MON_EN[month]} {year}</div>",
                   unsafe_allow_html=True)
     with _nc3:
         if st.button("▶", key="next_m", disabled=(idx>=len(months)-1), use_container_width=True):
@@ -616,7 +828,7 @@ def _schedule_info_panel(months, volunteers):
                 f'<span style="flex:0 0 66px;font-weight:700;font-size:13px;color:#000000;">{date_lbl}</span>'
                 f'<span style="flex:0 0 30px;background:#3b82f6;color:#ffffff;border-radius:4px;'
                 f'font-size:11px;font-weight:600;text-align:center;padding:2px 3px;">{shift}</span>'
-                f'<span style="flex:1;font-size:12px;color:#000000;">{zone}</span>'
+                f'<span style="flex:1;font-size:12px;color:#000000;word-break:break-all;">{zone}</span>'
                 f'</div>'
             )
         total_bar = (
@@ -781,9 +993,17 @@ def page_week_grid():
                 f'<span class="header-title">志工排班表</span>'
                 f'<span class="header-date">{MON_EN[cm]} {cy}</span></div>', unsafe_allow_html=True)
 
+    # ── 橫向捲動提示（只在 JS 偵測到需要時才顯示，靠 CSS overflow-x:auto 實現）
+    st.markdown(
+        '<div style="font-size:11px;color:#888888;text-align:right;margin-bottom:2px;">'
+        '← 左右滑動查看全部區域 →</div>',
+        unsafe_allow_html=True)
+
     html = '<div class="wk-wrap"><table class="wk-tbl"><tr>'
     html += '<th class="wk-date-cell">日期</th><th class="wk-shift-cell"></th>'
-    for z in zone_names: html += f'<th>{z}</th>'
+    for z in zone_names:
+        # 區域名稱在 th 裡換行，讓欄位窄一些
+        html += f'<th>{z}</th>'
     html += '</tr>'
 
     for day in week_days:
@@ -920,7 +1140,6 @@ def page_week_grid():
 def page_admin_login():
     st.markdown("<h2 style='color:#000000;'>管理員登入</h2>", unsafe_allow_html=True)
 
-    # ── 若 admin_pw 未在 secrets 設定，直接拒絕所有人登入 ──
     if not ADMIN_PW:
         st.error("❌ 系統尚未設定管理員密碼，請聯絡系統管理員在 Secrets 中設定 admin_pw。")
         if st.button("返回", key="cancel_login_nopw", use_container_width=True):
@@ -929,9 +1148,6 @@ def page_admin_login():
 
     attempts = st.session_state.get("login_attempts", 0)
 
-    # ════════════════════════════════════════
-    # 已鎖住：顯示解鎖碼輸入框
-    # ════════════════════════════════════════
     if attempts >= MAX_LOGIN_ATTEMPTS:
         st.markdown(
             '<div class="unlock-box">'
@@ -949,7 +1165,6 @@ def page_admin_login():
         with u1:
             if st.button("🔓 解鎖", key="do_unlock", type="primary", use_container_width=True):
                 if UNLOCK_CODE and unlock_input == UNLOCK_CODE:
-                    # 解鎖成功：重置計數器並提示重新登入
                     st.session_state.login_attempts = 0
                     st.success("✅ 解鎖成功！請重新輸入管理員密碼登入。")
                     st.rerun()
@@ -959,11 +1174,8 @@ def page_admin_login():
             if st.button("返回", key="cancel_login_locked", use_container_width=True):
                 st.session_state.login_attempts = 0
                 nav("calendar")
-        return  # 鎖住狀態到此結束，不顯示正常登入框
+        return
 
-    # ════════════════════════════════════════
-    # 正常登入流程
-    # ════════════════════════════════════════
     remaining = MAX_LOGIN_ATTEMPTS - attempts
     if attempts > 0:
         st.warning(f"⚠️ 密碼錯誤，剩餘嘗試次數：{remaining} 次")
@@ -974,12 +1186,10 @@ def page_admin_login():
     with c1:
         if st.button("登入", key="do_login", type="primary", use_container_width=True):
             if pwd == ADMIN_PW:
-                # 登入成功
                 st.session_state.is_admin_auth  = True
                 st.session_state.login_attempts = 0
                 nav("admin")
             else:
-                # 登入失敗：累加計數
                 st.session_state.login_attempts = attempts + 1
                 new_remaining = MAX_LOGIN_ATTEMPTS - st.session_state.login_attempts
                 if new_remaining <= 0:
